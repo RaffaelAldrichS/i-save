@@ -14,6 +14,12 @@ export interface DownloadResult {
   ext: string;
 }
 
+export function parseTrimOption(formatId: string): { startTime: string; endTime: string } | null {
+  const match = formatId.match(/trim_(\d{2}:\d{2}(?::\d{2})?)_(\d{2}:\d{2}(?::\d{2})?)/);
+  if (!match) return null;
+  return { startTime: match[1], endTime: match[2] };
+}
+
 export async function processMediaDownload(
   url: string,
   formatId: string

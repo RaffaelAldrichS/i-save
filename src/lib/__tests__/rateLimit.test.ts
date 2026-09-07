@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { RateLimiter } from '../rateLimit';
+import { RateLimiter, getClientIp } from '../rateLimit';
 
 describe('RateLimiter Middleware', () => {
   let rateLimiter: RateLimiter;
@@ -39,5 +39,21 @@ describe('RateLimiter Middleware', () => {
 
     expect(rateLimiter.check(ip1).allowed).toBe(false);
     expect(rateLimiter.check(ip2).allowed).toBe(true);
+  });
+
+  it('should extract client IP accurately from request headers', () => {
+    const headersMap = new Map<string, string>();
+    const mockReq = {
+      headers: {
+        get: (key: string) => headersMap.get(key.toLowerCase()) || null,
+      },
+    };
+
+    headersMap.set('cf-connecting-ip', '203.0.113.195');
+    headersMap.set('x-forwarded-for', '198.51.100.10, 192.0.2.1');
+    expect(getClientIp(mockReq)).toBe('203.0.113.195');
+
+    headersMap.delete('cf-connecting-ip');
+    expect(getClientIp(mockReq)).toBe('198.51.100.10');
   });
 });

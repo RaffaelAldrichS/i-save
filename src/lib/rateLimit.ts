@@ -60,3 +60,19 @@ export class RateLimiter {
 }
 
 export const apiRateLimiter = new RateLimiter(10, 60 * 1000); // 10 requests per minute
+
+export function getClientIp(req: { headers: { get(name: string): string | null } }): string {
+  const cfIp = req.headers.get('cf-connecting-ip');
+  if (cfIp) return cfIp.trim();
+
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp) return realIp.trim();
+
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const ips = forwarded.split(',').map((s) => s.trim());
+    if (ips.length > 0 && ips[0]) return ips[0];
+  }
+
+  return '127.0.0.1';
+}

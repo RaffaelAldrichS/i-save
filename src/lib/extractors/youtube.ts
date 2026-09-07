@@ -61,6 +61,22 @@ export class YouTubeExtractor implements MediaExtractor {
           type: 'video',
         },
         ...generateAudioFormats(`yt-${videoId}`),
+        {
+          id: `yt-${videoId}-sub-srt`,
+          quality: 'Subtitle Teks (.SRT)',
+          ext: 'srt',
+          formatId: 'sub-srt',
+          requiresMerge: false,
+          type: 'text',
+        },
+        {
+          id: `yt-${videoId}-sub-txt`,
+          quality: 'Transkrip Teks Murni (.TXT)',
+          ext: 'txt',
+          formatId: 'sub-txt',
+          requiresMerge: false,
+          type: 'text',
+        },
       ];
 
       return {

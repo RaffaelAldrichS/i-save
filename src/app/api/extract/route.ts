@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractorManager } from '@/lib/extractors';
-import { apiRateLimiter } from '@/lib/rateLimit';
+import { apiRateLimiter, getClientIp } from '@/lib/rateLimit';
 import { isSafeExternalUrl } from '@/lib/security';
 import { tempStorage } from '@/lib/tempStorage';
 
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   try {
     tempStorage.cleanupExpired();
 
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
+    const ip = getClientIp(req);
     const rateCheck = apiRateLimiter.check(ip);
 
     if (!rateCheck.allowed) {

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tempStorage } from '@/lib/tempStorage';
-import { apiRateLimiter } from '@/lib/rateLimit';
+import { apiRateLimiter, getClientIp } from '@/lib/rateLimit';
 import { processMediaDownload } from '@/lib/mediaDownloader';
-import { isSafeExternalUrl } from '@/lib/security';
+import { isSafeExternalUrl, getMimeType } from '@/lib/security';
 import fs from 'fs';
 import path from 'path';
 
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   try {
     tempStorage.cleanupExpired();
 
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
+    const ip = getClientIp(req);
     const rateCheck = apiRateLimiter.check(ip);
 
     if (!rateCheck.allowed) {
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(webStream as unknown as BodyInit, {
     status: 200,
     headers: {
-      'Content-Type': `application/${ext}`,
+      'Content-Type': getMimeType(ext),
       'Content-Disposition': `attachment; filename="${fileInfo.filename.replace(/["\\\r\n]/g, '_')}"`,
       'Content-Length': fileInfo.size.toString(),
     },

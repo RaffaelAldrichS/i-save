@@ -1,4 +1,4 @@
-export type PlatformType = 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'generic';
+export type PlatformType = 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'twitter' | 'reddit' | 'threads' | 'generic';
 
 export interface MediaFormat {
   id: string;
@@ -8,7 +8,7 @@ export interface MediaFormat {
   formatId?: string;      // Engine-specific format ID
   requiresMerge: boolean; // True if audio and video need FFmpeg merging
   filesize?: number;
-  type: 'video' | 'audio' | 'image' | 'gallery';
+  type: 'video' | 'audio' | 'image' | 'gallery' | 'text';
   images?: string[];      // For carousel / photo slides
 }
 

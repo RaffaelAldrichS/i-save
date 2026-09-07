@@ -82,3 +82,37 @@ export function isSafeExternalUrl(urlStr: string): boolean {
     return false;
   }
 }
+
+/**
+ * Returns accurate MIME type for a given file extension or filename.
+ */
+export function getMimeType(extOrFilename: string): string {
+  const cleanExt = extOrFilename.toLowerCase().replace(/^\./, '');
+  const mimeMap: Record<string, string> = {
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    wav: 'audio/wav',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    zip: 'application/zip',
+    srt: 'text/plain; charset=utf-8',
+    vtt: 'text/vtt; charset=utf-8',
+    txt: 'text/plain; charset=utf-8',
+  };
+  return mimeMap[cleanExt] || 'application/octet-stream';
+}
+
+/**
+ * Extracts and deduplicates valid HTTP/HTTPS URLs from a multi-line input string.
+ */
+export function parseMultiUrls(input: string): string[] {
+  if (!input) return [];
+  const urlRegex = /(https?:\/\/[^\s]+)/gi;
+  const matches = input.match(urlRegex) || [];
+  const valid = matches.filter((u) => isSafeExternalUrl(u.trim()));
+  return Array.from(new Set(valid.map((u) => u.trim())));
+}
