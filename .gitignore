@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+.codegraph/
+screencapture-*.png
 
 # debug
 npm-debug.log*
