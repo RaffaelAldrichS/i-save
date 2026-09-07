@@ -13,12 +13,16 @@
 
 ## ✨ Kenapa Memilih iSAVE?
 
-- 🎬 **Bersih Tanpa Watermark**: Simpan konten TikTok & Instagram dalam bentuk video murni tanpa logo yang menutupi layar.
-- 🎵 **Konversi MP3 Instan**: Ambil audio berkualitas tinggi dari video musik favorit di YouTube atau TikTok hanya dalam sekali klik.
-- 📺 **Kualitas Gambar Jernih (Full HD)**: Dari resolusi 360p hemat kuota hingga 1080p Full HD yang tajam (digabung otomatis dengan audio lewat FFmpeg).
+- 📱 **Mobile Seamless QR Code Handoff**: Pindahkan unduhan dari desktop ke HP secara instan dengan mengarahkan kamera HP ke QR Code dinamis.
+- 📲 **PWA & Native Web Share Target**: Install iSAVE sebagai PWA dan simpan video langsung dari tombol *Share Sheet* native di Android & iOS!
+- 🎬 **Pratinjau Media Inline**: Tonton video atau dengarkan audio langsung di dalam workspace sebelum mengunduh.
+- 📸 **TikTok Slide Carousel & Bundel ZIP**: Unduh seluruh foto slide TikTok/Instagram dalam 1 file ZIP paket atau unduh foto eceran per slide.
+- 🎵 **Pilihan Bitrate Audio MP3**: Ekstraksi audio murni dengan pilihan kualitas 320kbps (High Quality), 192kbps (Standard), atau 128kbps (Compact/Ringtone).
+- 🌐 **Dukungan Multi-Bahasa (i18n)**: Mendukung Bahasa Indonesia, English, dan Español otomatis sesuai preferensi peramban.
+- 🌓 **Tema Interaktif (Dark / Light / System)**: Ganti tema visual sesuai kenyamanan mata dengan mempertahankan identitas warna *Deep Forest Green (#0E2E1A)* dan *Electric Lime (#84E039)*.
+- ⚡ **Pintasan Bookmarklet Browser PC**: Unduh video saat menonton di YouTube/TikTok/Instagram cukup 1-klik dari Bookmark Bar browser PC.
 - 🛡️ **Privasi Aman & Terjaga**: Tanpa pendaftaran akun, tanpa database, dan tanpa riwayat unduhan. File sementara langsung terhapus otomatis dalam 15 menit.
-- 🔒 **Sistem Keamanan Andal**: Dilengkapi proteksi SSRF, pencegahan Path Traversal, serta pembatas laju akses (*Rate Limiting*) agar server tetap stabil dan aman.
-- ⚡ **Tampilan Nyaman & Responsif**: Tempel link langsung dari clipboard, rasakan animasi yang mulus, dan nikmati tampilan yang ramah di semua perangkat (HP, tablet, maupun PC).
+- 🔒 **Sistem Keamanan Andal**: Dilengkapi proteksi SSRF, `--no-exec` yt-dlp isolation, pencegahan Path Traversal, serta pembatas laju akses (*Rate Limiting*).
 
 ---
 
@@ -173,7 +177,7 @@ Mengirimkan file fisik langsung ke peramban pengguna sebagai lampiran unduhan (*
 
 ```text
 isave/
-├── public/                  # Asset gambar publik & favicon
+├── public/                  # Asset gambar publik, favicon, & PWA manifest.json
 ├── src/
 │   ├── app/                 # Next.js App Router (Halaman, Layout, API Routes)
 │   │   ├── api/
@@ -182,21 +186,27 @@ isave/
 │   │   ├── layout.tsx       # Root layout, Metadata SEO & JSON-LD
 │   │   └── page.tsx         # Halaman utama aplikasi
 │   ├── components/          # Komponen UI React
-│   │   ├── DownloaderWorkspace.tsx  # Area input URL, preview, & opsi unduh
+│   │   ├── DownloaderWorkspace.tsx  # Area input URL, inline preview, & opsi unduh
+│   │   ├── QrCodeModal.tsx          # Modal QR Code untuk mobile handoff
+│   │   ├── BookmarkletModal.tsx     # Modal panduan bookmarklet PC
+│   │   ├── ThemeSwitcher.tsx        # Toggle tema Dark / Light / System
 │   │   ├── Navbar.tsx               # Navigasi utama & menu mobile
 │   │   ├── Features.tsx             # Kartu fitur unggulan
 │   │   ├── HowItWorks.tsx           # Panduan 3 langkah penggunaan
 │   │   ├── FAQSection.tsx           # Pertanyaan umum (FAQ)
-│   │   ├── PlatformBadges.tsx       # Badge platform yang didukung
 │   │   └── Footer.tsx               # Footer & tautan navigasi
 │   ├── lib/                 # Logika bisnis & modul pendukung
 │   │   ├── extractors/      # Extractor Manager & parser platform
+│   │   ├── audioOptions.ts  # Generator pilihan bitrate audio (320k/192k/128k)
+│   │   ├── carouselZip.ts   # Modul bundling slide foto ke ZIP via JSZip
+│   │   ├── i18n.ts          # Kamus multi-bahasa (ID / EN / ES) & language detector
 │   │   ├── mediaDownloader.ts # Engine pengunduhan & merger FFmpeg
 │   │   ├── rateLimit.ts     # In-memory IP rate limiter
 │   │   ├── security.ts      # Validator keamanan & penangkal SSRF
 │   │   └── tempStorage.ts   # Manajer penyimpanan sementara & auto-cleanup
 │   └── types/               # Definisi tipe TypeScript
 ├── ARCHITECTURE.md          # Dokumentasi teknis arsitektur
+├── SPEC.md                  # Spesifikasi fitur & persyaratan
 └── README.md                # Dokumentasi utama project
 ```
 

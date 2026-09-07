@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Download, Menu, X, CheckCircle2 } from 'lucide-react';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 export function getActiveSectionId(sectionIds: string[]): string | null {
   if (typeof document === 'undefined') return null;
@@ -97,8 +98,9 @@ export const Navbar: React.FC = () => {
           })}
         </nav>
 
-        {/* RIGHT: CTA Button (Desktop) */}
+        {/* RIGHT: CTA Button & Theme Switcher (Desktop) */}
         <div className="hidden md:flex items-center gap-3">
+          <ThemeSwitcher />
           <a
             href="#downloader"
             onClick={(e) => handleScroll(e, '#downloader')}
@@ -110,7 +112,8 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Mobile Hamburger Button */}
-        <div className="flex md:hidden">
+        <div className="flex md:hidden items-center gap-2">
+          <ThemeSwitcher />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

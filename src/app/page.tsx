@@ -20,9 +20,13 @@ export default function Home() {
   const [state, setState] = useState<DownloaderState>({ status: 'idle' });
   const [processingFormat, setProcessingFormat] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [lastDownloadUrl, setLastDownloadUrl] = useState<string | null>(null);
+  const [lastFilename, setLastFilename] = useState<string | null>(null);
 
   const handleExtract = async (url: string) => {
     setDownloadError(null);
+    setLastDownloadUrl(null);
+    setLastFilename(null);
     setState({ status: 'extracting' });
 
     try {
@@ -60,6 +64,9 @@ export default function Home() {
       if (!res.ok || !json.success || !json.downloadUrl) {
         throw new Error(json.error || 'Gagal menyiapkan unduhan');
       }
+
+      setLastDownloadUrl(json.downloadUrl);
+      setLastFilename(json.filename || 'media.mp4');
 
       const link = document.createElement('a');
       link.href = json.downloadUrl;
@@ -116,6 +123,8 @@ export default function Home() {
                 downloadError={downloadError}
                 onDownloadFormat={handleDownloadFormat}
                 isProcessingFormat={processingFormat}
+                lastDownloadUrl={lastDownloadUrl}
+                lastFilename={lastFilename}
               />
             </div>
           </div>

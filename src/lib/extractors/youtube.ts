@@ -1,5 +1,6 @@
 import { MediaExtractor } from './types';
 import { MediaMetadata, MediaFormat } from '@/types/media';
+import { generateAudioFormats } from '../audioOptions';
 
 export class YouTubeExtractor implements MediaExtractor {
   name = 'YouTube Extractor';
@@ -59,14 +60,7 @@ export class YouTubeExtractor implements MediaExtractor {
           requiresMerge: false,
           type: 'video',
         },
-        {
-          id: `yt-${videoId}-audio-mp3`,
-          quality: 'Audio MP3 (320kbps)',
-          ext: 'mp3',
-          formatId: '140',
-          requiresMerge: false,
-          type: 'audio',
-        },
+        ...generateAudioFormats(`yt-${videoId}`),
       ];
 
       return {

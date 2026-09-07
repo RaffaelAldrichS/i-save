@@ -3,6 +3,7 @@ import util from 'util';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { buildCarouselZip, ImageFile } from './carouselZip';
 
 const execFilePromise = util.promisify(execFile);
 
@@ -18,12 +19,14 @@ export async function processMediaDownload(
   formatId: string
 ): Promise<DownloadResult> {
   const isAudio = formatId.includes('audio') || formatId.includes('mp3');
-  const ext = isAudio ? 'mp3' : 'mp4';
+  const isZip = formatId.includes('zip') || formatId.includes('carousel');
+  const isImage = formatId.includes('img') || formatId.includes('slide') || formatId.includes('photo');
+  const ext = isZip ? 'zip' : isAudio ? 'mp3' : isImage ? 'jpg' : 'mp4';
   const tempDir = os.tmpdir();
   const filePrefix = `isave_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const tempFilePath = path.join(tempDir, `${filePrefix}.${ext}`);
 
-  // 1. TikTok Handler via TikWM API
+  // 1. TikTok Handler via TikWM API (Supports Video, Audio, and Photo Carousel Slides)
   if (/tiktok\.com/i.test(url)) {
     try {
       const apiRes = await fetch(
@@ -32,6 +35,62 @@ export async function processMediaDownload(
       if (apiRes.ok) {
         const json = await apiRes.json();
         if (json.data) {
+          // TikTok Photo Carousel Slideshow
+          if (json.data.images && Array.isArray(json.data.images) && json.data.images.length > 0) {
+            const images: string[] = json.data.images;
+            if (isZip || formatId.includes('carousel-zip')) {
+              const imageFiles: ImageFile[] = [];
+              for (let i = 0; i < images.length; i++) {
+                let imgUrl = images[i];
+                if (!imgUrl.startsWith('http')) imgUrl = `https://www.tikwm.com${imgUrl}`;
+                const imgRes = await fetch(imgUrl);
+                if (imgRes.ok) {
+                  const arrBuf = await imgRes.arrayBuffer();
+                  imageFiles.push({
+                    filename: `slide_${i + 1}.jpg`,
+                    buffer: Buffer.from(arrBuf),
+                  });
+                }
+              }
+
+              if (imageFiles.length > 0) {
+                const zipBuffer = await buildCarouselZip(imageFiles);
+                await fs.promises.writeFile(tempFilePath, zipBuffer);
+                const titleSlug = (json.data.title || 'tiktok-slideshow')
+                  .slice(0, 30)
+                  .replace(/[^a-zA-Z0-9]/g, '_');
+                return {
+                  filePath: tempFilePath,
+                  get buffer() {
+                    return fs.readFileSync(tempFilePath);
+                  },
+                  filename: `${titleSlug}_slides.zip`,
+                  ext: 'zip',
+                };
+              }
+            } else if (formatId.includes('slide-')) {
+              const matchIndex = formatId.match(/slide-(\d+)/);
+              const slideIdx = matchIndex ? parseInt(matchIndex[1], 10) - 1 : 0;
+              const targetUrl = images[slideIdx] || images[0];
+              const fullImgUrl = targetUrl.startsWith('http') ? targetUrl : `https://www.tikwm.com${targetUrl}`;
+              const imgRes = await fetch(fullImgUrl);
+              if (imgRes.ok) {
+                const arrBuf = await imgRes.arrayBuffer();
+                const buffer = Buffer.from(arrBuf);
+                await fs.promises.writeFile(tempFilePath, buffer);
+                return {
+                  filePath: tempFilePath,
+                  get buffer() {
+                    return fs.readFileSync(tempFilePath);
+                  },
+                  filename: `tiktok_slide_${slideIdx + 1}.jpg`,
+                  ext: 'jpg',
+                };
+              }
+            }
+          }
+
+          // Single TikTok Video or Audio Track
           let mediaUrl: string | undefined = isAudio
             ? json.data.music || json.data.play
             : json.data.play;
@@ -53,7 +112,7 @@ export async function processMediaDownload(
               const buffer = Buffer.from(arrayBuf);
               if (buffer.length > 1000) {
                 await fs.promises.writeFile(tempFilePath, buffer);
-                const titleSlug = (json.data.title || 'tiktok-video')
+                const titleSlug = (json.data.title || 'tiktok-media')
                   .slice(0, 30)
                   .replace(/[^a-zA-Z0-9]/g, '_');
                 return {
@@ -76,11 +135,8 @@ export async function processMediaDownload(
 
   // 2. yt-dlp Handler for YouTube, Instagram, TikTok fallback
   try {
-    const ytDlpFormat = isAudio
-      ? 'ba/best'
-      : '18/22/b[height<=720]/b/bestvideo+bestaudio/best';
-
-    await execFilePromise('yt-dlp', [
+    const ytDlpArgs = [
+      '--no-exec',
       '--no-playlist',
       '--no-part',
       '--js-runtimes',
@@ -89,12 +145,19 @@ export async function processMediaDownload(
       'ejs:github',
       '--max-filesize',
       '200m',
-      '-f',
-      ytDlpFormat,
-      '-o',
-      tempFilePath,
-      url,
-    ]);
+    ];
+
+    if (isAudio) {
+      const bitrateMatch = formatId.match(/(320|192|128)kbps/);
+      const quality = bitrateMatch ? `${bitrateMatch[1]}k` : '320k';
+      ytDlpArgs.push('-x', '--audio-format', 'mp3', '--audio-quality', quality);
+    } else {
+      ytDlpArgs.push('-f', '18/22/b[height<=720]/b/bestvideo+bestaudio/best');
+    }
+
+    ytDlpArgs.push('-o', tempFilePath, url);
+
+    await execFilePromise('yt-dlp', ytDlpArgs);
 
     // Look for exact file or any file created with prefix
     let actualFilePath = tempFilePath;

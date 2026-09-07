@@ -20,6 +20,10 @@ import {
   CheckCircle2,
   Sparkles,
   RefreshCw,
+  QrCode,
+  Bookmark,
+  Play,
+  ExternalLink,
 } from "lucide-react";
 import {
   YoutubeIcon,
@@ -27,6 +31,8 @@ import {
   InstagramIcon,
   FacebookIcon,
 } from "./BrandIcons";
+import { QrCodeModal } from "./QrCodeModal";
+import { BookmarkletModal } from "./BookmarkletModal";
 
 export async function handleClipboardPaste(
   clipboardObj?: Clipboard,
@@ -59,6 +65,8 @@ interface DownloaderWorkspaceProps {
   downloadError?: string | null;
   onDownloadFormat: (formatId: string) => void;
   isProcessingFormat?: string | null;
+  lastDownloadUrl?: string | null;
+  lastFilename?: string | null;
 }
 
 export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
@@ -69,14 +77,20 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
   downloadError,
   onDownloadFormat,
   isProcessingFormat,
+  lastDownloadUrl,
+  lastFilename,
 }) => {
   const [url, setUrl] = useState("");
   const [pasteError, setPasteError] = useState<string | null>(null);
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isBookmarkletOpen, setIsBookmarkletOpen] = useState(false);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
     setPasteError(null);
+    setIsPlayingPreview(false);
     onExtract(url.trim());
   };
 
@@ -105,6 +119,18 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
       id="downloader"
       className="w-full bg-surface border border-border rounded-3xl p-4 sm:p-6 lg:p-8 shadow-card space-y-6 transition-all"
     >
+      {/* Modals */}
+      <QrCodeModal
+        isOpen={isQrOpen}
+        onClose={() => setIsQrOpen(false)}
+        downloadUrl={lastDownloadUrl || "/"}
+        filename={lastFilename || "media.mp4"}
+      />
+      <BookmarkletModal
+        isOpen={isBookmarkletOpen}
+        onClose={() => setIsBookmarkletOpen(false)}
+      />
+
       {/* 1. URL INPUT FORM */}
       <form onSubmit={handleSubmit} className="w-full space-y-3">
         <label htmlFor="url-input" className="sr-only">
@@ -186,20 +212,31 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
           </div>
         )}
 
-        {/* Microcopy Trust Badges */}
-        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 sm:gap-6 px-1 text-xs font-medium text-text-muted">
-          <span className="flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
-            100% Aman & Stateless
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
-            Proses Instan
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Gift className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
-            Tanpa Watermark
-          </span>
+        {/* Microcopy Trust Badges & Action Shortcuts */}
+        <div className="flex flex-wrap items-center justify-between gap-4 px-1 text-xs font-medium text-text-muted">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
+              100% Aman & Stateless
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
+              Proses Instan
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Gift className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
+              Tanpa Watermark
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsBookmarkletOpen(true)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-soft border border-border hover:border-secondary text-primary font-bold transition-all cursor-pointer"
+          >
+            <Bookmark className="w-3.5 h-3.5 text-secondary" />
+            <span>Bookmarklet PC</span>
+          </button>
         </div>
       </form>
 
@@ -271,41 +308,104 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
         {!isLoading && !error && metadata && (
           <div className="w-full space-y-6">
             {/* Header Status Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-border/60">
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-soft text-primary text-xs font-bold">
                   <CheckCircle2 className="w-3.5 h-3.5 text-secondary" />
                   Media Siap Diunduh
                 </span>
               </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-soft border border-border text-xs font-bold text-text">
-                {getPlatformIcon(metadata.platform)}
-                <span className="capitalize">{metadata.platform}</span>
-              </span>
+
+              <div className="flex items-center gap-2">
+                {lastDownloadUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setIsQrOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent text-primary text-xs font-extrabold hover:bg-accent-dark transition-colors cursor-pointer"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>Scan Unduh di HP</span>
+                  </button>
+                )}
+
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-soft border border-border text-xs font-bold text-text">
+                  {getPlatformIcon(metadata.platform)}
+                  <span className="capitalize">{metadata.platform}</span>
+                </span>
+              </div>
             </div>
 
-            {/* Thumbnail & Video Info */}
+            {/* Thumbnail / Inline Media Player & Info */}
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start">
-              <div className="relative w-full sm:w-52 aspect-video rounded-2xl overflow-hidden bg-surface-soft border border-border shrink-0 shadow-xs">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={metadata.thumbnail}
-                  alt={metadata.title}
-                  className="w-full h-full object-cover"
-                />
-                {metadata.duration ? (
-                  <span
-                    className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md backdrop-blur-xs text-[11px] font-mono font-medium flex items-center gap-1"
-                    style={{
-                      backgroundColor: "var(--color-overlay-dark)",
-                      color: "var(--color-surface-white)",
-                    }}
-                  >
-                    <Clock className="w-3 h-3" />
-                    {Math.floor(metadata.duration / 60)}:
-                    {String(metadata.duration % 60).padStart(2, "0")}
-                  </span>
-                ) : null}
+              <div className="relative w-full sm:w-52 aspect-video rounded-2xl overflow-hidden bg-surface-soft border border-border shrink-0 shadow-xs group">
+                {isPlayingPreview ? (
+                  metadata.previewUrl ? (
+                    <video
+                      src={metadata.previewUrl}
+                      controls
+                      autoPlay
+                      className="w-full h-full object-contain bg-black"
+                    />
+                  ) : metadata.platform === "youtube" ? (
+                    <div className="relative w-full h-full">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${metadata.id}?autoplay=1`}
+                        title={metadata.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative w-full h-full bg-black flex flex-col items-center justify-center p-3 text-center text-white space-y-2">
+                      <p className="text-xs font-semibold">
+                        Situs ini membatasi pemutaran iframe
+                      </p>
+                      <a
+                        href={metadata.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent text-primary text-xs font-bold hover:bg-accent-dark transition-colors"
+                      >
+                        <span>Buka Media Asli</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={metadata.thumbnail}
+                      alt={metadata.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsPlayingPreview(true)}
+                      aria-label="Putar pratinjau media"
+                      className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-accent text-primary flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                        <Play className="w-5 h-5 fill-primary ml-0.5" />
+                      </div>
+                    </button>
+                    {metadata.duration ? (
+                      <span
+                        className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md backdrop-blur-xs text-[11px] font-mono font-medium flex items-center gap-1 pointer-events-none"
+                        style={{
+                          backgroundColor: "var(--color-overlay-dark)",
+                          color: "var(--color-surface-white)",
+                        }}
+                      >
+                        <Clock className="w-3 h-3" />
+                        {Math.floor(metadata.duration / 60)}:
+                        {String(metadata.duration % 60).padStart(2, "0")}
+                      </span>
+                    ) : null}
+                  </>
+                )}
               </div>
 
               <div className="flex-1 space-y-2 min-w-0">
@@ -330,6 +430,15 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
                     />
                     {metadata.formats.length} Opsi Format
                   </span>
+                  <a
+                    href={metadata.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-soft hover:bg-primary-soft text-text hover:text-primary transition-colors font-semibold"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-secondary" />
+                    <span>Buka Media Asli</span>
+                  </a>
                 </div>
               </div>
             </div>
@@ -415,3 +524,4 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
     </div>
   );
 };
+

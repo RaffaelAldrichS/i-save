@@ -1,5 +1,6 @@
 import { MediaExtractor } from './types';
 import { MediaMetadata, MediaFormat } from '@/types/media';
+import { generateAudioFormats } from '../audioOptions';
 
 export class InstagramExtractor implements MediaExtractor {
   name = 'Instagram Extractor';
@@ -71,13 +72,7 @@ export class InstagramExtractor implements MediaExtractor {
         requiresMerge: false,
         type: 'image',
       },
-      {
-        id: `ig-${shortcode}-audio`,
-        quality: 'Audio Original (MP3)',
-        ext: 'mp3',
-        requiresMerge: false,
-        type: 'audio',
-      },
+      ...generateAudioFormats(`ig-${shortcode}`),
     ];
 
     return {

@@ -1,0 +1,27 @@
+{
+  "name": "iSAVE — Media Downloader HD",
+  "short_name": "iSAVE",
+  "description": "Unduh video & audio HD dari YouTube, TikTok, Instagram, dan Facebook tanpa watermark secara gratis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF9F5",
+  "theme_color": "#0E2E1A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/window.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
