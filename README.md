@@ -1,4 +1,4 @@
-# ⚡ iSAVE — Pengunduh Media HD Tanpa Watermark
+# ⚡ iSAVE — Unduh Media HD Tanpa Watermark, Cepat & Bebas Ribet
 
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)
@@ -6,88 +6,93 @@
 ![Vitest](https://img.shields.io/badge/Tested_with-Vitest-6E9F18?style=flat-square&logo=vitest)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-> **iSAVE** adalah aplikasi web pengunduh media online yang super cepat, 100% gratis, dan tanpa pendaftaran. Dirancang dengan pendekatan *privacy-first* dan *stateless* untuk menyimpan video MP4 HD dan audio MP3 dari YouTube, TikTok, Instagram, serta Facebook tanpa watermark.
+> **Mau simpan video TikTok tanpa logo watermark atau convert lagu YouTube ke MP3 secara instan?**
+> **iSAVE** hadir untuk mempermudah hidupmu. Cukup paste link media, pilih format yang kamu mau, dan unduh langsung — 100% gratis, tanpa perlu daftar akun, dan tanpa melacak data pribadimu.
 
 ---
 
-## 🌟 Fitur Utama
+## ✨ Kenapa Memilih iSAVE?
 
-- 🎬 **Bebas Watermark**: Ekstraksi stream media murni dari TikTok & Instagram tanpa logo/watermark overlay.
-- 🎵 **Ekstraksi Audio MP3**: Ubah video favorit dari YouTube & TikTok menjadi file audio MP3 berkualitas tinggi secara instan.
-- 📺 **Multi-Resolusi Full HD**: Dukungan pilihan format MP4 mulai dari 360p, 480p, 720p HD, hingga 1080p Full HD (dengan penggabungan video + audio otomatis via FFmpeg).
-- 🛡️ **Stateless & Privacy-First**: Tanpa basis data, tanpa akun, tanpa pelacakan riwayat unduhan. File sementara dihapus otomatis setelah 15 menit.
-- 🔒 **Keamanan Tingkat Tinggi**: Proteksi bawaan dari serangan **SSRF** (Server-Side Request Forgery), **Path Traversal**, serta pembatasan laju (*In-memory Rate Limiting*).
-- ⚡ **UI/UX Modern & Responsif**: Dibangun dengan komponen responsif, dukungan paste cepat dari clipboard, indikator loading interaktif, dan standar aksesibilitas WCAG 2.2.
+- 🎬 **Bersih Tanpa Watermark**: Simpan konten TikTok & Instagram dalam bentuk video murni tanpa logo yang menutupi layar.
+- 🎵 **Konversi MP3 Instan**: Ambil audio berkualitas tinggi dari video musik favorit di YouTube atau TikTok hanya dalam sekali klik.
+- 📺 **Kualitas Gambar Jernih (Full HD)**: Dari resolusi 360p hemat kuota hingga 1080p Full HD yang tajam (digabung otomatis dengan audio lewat FFmpeg).
+- 🛡️ **Privasi Aman & Terjaga**: Tanpa pendaftaran akun, tanpa database, dan tanpa riwayat unduhan. File sementara langsung terhapus otomatis dalam 15 menit.
+- 🔒 **Sistem Keamanan Andal**: Dilengkapi proteksi SSRF, pencegahan Path Traversal, serta pembatas laju akses (*Rate Limiting*) agar server tetap stabil dan aman.
+- ⚡ **Tampilan Nyaman & Responsif**: Tempel link langsung dari clipboard, rasakan animasi yang mulus, dan nikmati tampilan yang ramah di semua perangkat (HP, tablet, maupun PC).
 
 ---
 
-## 📊 Matriks Dukungan Platform
+## 📊 Platform yang Didukung
 
-| Platform | Format Video | Format Audio | Tanpa Watermark | Resolusi Maksimum |
+| Platform | Format Video | Format Audio | Tanpa Watermark | Resolusi Maksimal |
 | :--- | :---: | :---: | :---: | :---: |
 | **YouTube** | MP4 | MP3 / M4A | ✅ | 1080p Full HD / 4K |
-| **TikTok** | MP4 | MP3 | ✅ | HD Originals |
-| **Instagram** (Reels / Post) | MP4 | MP3 | ✅ | 1080p HD |
-| **Facebook** | MP4 | MP3 | ✅ | HD Quality |
+| **TikTok** | MP4 | MP3 | ✅ | Kualitas Asli (HD) |
+| **Instagram** (Reels & Feed) | MP4 | MP3 | ✅ | 1080p HD |
+| **Facebook** | MP4 | MP3 | ✅ | Kualitas HD |
 
 ---
 
-## 🛠️ Teknologi & Arsitektur
+## 🛠️ Stack Teknologi
+
+Didevelop menggunakan teknologi modern berbasis web yang cepat dan andal:
 
 - **Framework**: [Next.js 16](https://nextjs.org/) (App Router & Turbopack)
 - **Bahasa**: [TypeScript](https://www.typescriptlang.org/) (Strict Mode)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) & [Lucide Icons](https://lucide.dev/)
-- **Ekstraksi Media**: Extractor Pipeline (Direct API Parsers + `yt-dlp` Wrapper Fallback)
-- **Pemrosesan Media**: [FFmpeg](https://ffmpeg.org/) Fluent-FFmpeg Merger & Converter
-- **Testing**: [Vitest](https://vitest.dev/) untuk Unit & Integration Testing
-- **Font**: Rethink Sans (Google Fonts via `next/font`)
+- **Desain UI**: [Tailwind CSS v4](https://tailwindcss.com/) & [Lucide Icons](https://lucide.dev/)
+- **Mesin Ekstraksi**: Extractor Pipeline (Parser API Langsung + Fallback `yt-dlp`)
+- **Pengolahan Media**: [FFmpeg](https://ffmpeg.org/) (Menggabungkan Video + Audio HD)
+- **Pengujian**: [Vitest](https://vitest.dev/) (Unit & Integration Testing)
+- **Tipografi**: Rethink Sans (`next/font`)
 
 ---
 
-## 🚀 Panduan Memulai (Local Setup)
+## 🚀 Panduan Memulai di Lokal
 
-### Prasyarat Sistem
+Ingin mencoba atau mengembangkan project ini di komputer lokalmu? Ikuti langkah mudah berikut:
 
-Sebelum menjalankan aplikasi di lingkungan lokal, pastikan perangkat Anda telah terpasang:
-- **Node.js**: v18.0.0 atau versi lebih baru
-- **npm** / **pnpm** / **yarn** / **bun**
-- **FFmpeg**: Terpasang di sistem (`ffmpeg` dan `ffprobe` terdaftar di sistem PATH)
-- **Python 3** & **yt-dlp** *(Opsional, untuk fallback ekstraksi YouTube lanjutan)*
+### Prasyarat
+
+Pastikan perangkatmu sudah memiliki:
+1. **Node.js**: Versi v18.0.0 atau yang lebih baru.
+2. **Package Manager**: `npm`, `pnpm`, `yarn`, atau `bun`.
+3. **FFmpeg**: Terpasang di sistem (`ffmpeg` dan `ffprobe` sudah masuk dalam `PATH`).
+4. **Python 3 & yt-dlp** *(Opsional, digunakan sebagai fallback pengunduhan YouTube)*.
 
 ### Langkah Instalasi
 
-1. **Cloning Repositori**
+1. **Clone Repositori**
    ```bash
    git clone https://github.com/username/isave.git
    cd isave
    ```
 
-2. **Instal Dependensi**
+2. **Pasang Dependensi**
    ```bash
    npm install
    ```
 
-3. **Jalankan Server Pengembang (Development)**
+3. **Jalankan Mode Pengembangan**
    ```bash
    npm run dev
    ```
-   Buka browser dan akses [http://localhost:3000](http://localhost:3000).
+   Buka browser dan kunjungi [http://localhost:3000](http://localhost:3000).
 
 ---
 
 ## 🧪 Pengujian & Build
 
 ```bash
-# Jalankan seluruh unit & integration tests
+# Jalankan seluruh pengujian (Unit & Integration Tests)
 npm test
 
-# Periksa tipe TypeScript & linter
+# Cek tipe data TypeScript dan potensi error code
 npm run lint
 
-# Buat build produksi
+# Buat build siap produksi
 npm run build
 
-# Jalankan server hasil build produksi
+# Jalankan server dari hasil build produksi
 npm run start
 ```
 
@@ -95,10 +100,12 @@ npm run start
 
 ## 🔌 Dokumentasi API Routes
 
-### 1. Ekstraksi Informasi Media
+Kamu juga bisa memanfaatkan API bawaan iSAVE untuk integrasi:
+
+### 1. Ambil Informasi Media
 `POST /api/extract`
 
-*Mengekstraksi judul, thumbnail, durasi, dan daftar format yang tersedia dari URL media.*
+Mengekstraksi detail video seperti judul, thumbnail, durasi, dan daftar format yang bisa diunduh.
 
 - **Request Body**:
   ```json
@@ -125,10 +132,10 @@ npm run start
   }
   ```
 
-### 2. Memproses & Menyiapkan Unduhan
+### 2. Proses & Siapkan Unduhan
 `POST /api/download`
 
-*Mengunduh/menggabungkan format yang dipilih ke direktori temporer server dan mengembalikan URL sesi unduhan.*
+Mengunduh atau menggabungkan format pilihan ke server sementara dan memberikan link file siap unduh.
 
 - **Request Body**:
   ```json
@@ -146,55 +153,55 @@ npm run start
   }
   ```
 
-### 3. Mengambil Stream File
+### 3. Unduh Stream File
 `GET /api/download?fileId={fileId}`
 
-*Mengalirkan file fisik sebagai attachment unduhan ke browser peramban.*
+Mengirimkan file fisik langsung ke peramban pengguna sebagai lampiran unduhan (*download attachment*).
 
 ---
 
-## 🛡️ Keamanan & Privasi
+## 🛡️ Keamanan & Perlindungan Data
 
-1. **SSRF Filtering (`isSafeExternalUrl`)**: Mencegah URL target mengarah ke IP internal (loopback `127.0.0.1`, subnet privat `10.x.x.x`, `192.168.x.x`, AWS metadata `169.254.169.254`).
-2. **Rate Limiting (`RateLimiter`)**: Membatasi maksimum 10 permintaan per menit per alamat IP pengirim untuk mencegah penyalahgunaan resource server.
-3. **Path Traversal Protection**: Pembersihan karakter ilegal pada `formatId` dan `fileId` menggunakan penataan aman `path.basename`.
-4. **Automatic TTL File Cleanup**: File media hasil pengolahan disimpan dalam folder temporer OS dan secara otomatis dibersihkan oleh `tempStorage.cleanupExpired()` setelah masa berlaku berakhir.
+- **Filter SSRF (`isSafeExternalUrl`)**: Mencegah URL mencurigakan yang mengarah ke jaringan privat internal (`127.0.0.1`, `10.x.x.x`, `192.168.x.x`, metadata AWS `169.254.169.254`).
+- **Pembatas Akses (`RateLimiter`)**: Maksimal 10 permintaan per menit per alamat IP untuk mencegah bot/spamming.
+- **Proteksi Path Traversal**: Membersihkan karakter berbahaya pada parameter `formatId` dan `fileId` menggunakan fungsi aman `path.basename`.
+- **Pembersihan Otomatis (TTL File Cleanup)**: File media disimpan sementara di sistem dan otomatis dibersihkan oleh `tempStorage.cleanupExpired()` setelah durasi habis.
 
 ---
 
-## 📁 Struktur Proyek
+## 📁 Struktur Direktori Project
 
 ```text
 isave/
-├── public/                  # Asset publik & favicon
+├── public/                  # Asset gambar publik & favicon
 ├── src/
-│   ├── app/                 # Next.js App Router (Pages, Layouts, API Routes)
+│   ├── app/                 # Next.js App Router (Halaman, Layout, API Routes)
 │   │   ├── api/
 │   │   │   ├── extract/     # Endpoint POST /api/extract
 │   │   │   └── download/    # Endpoint POST & GET /api/download
-│   │   ├── layout.tsx       # Root layout, metadata SEO & JSON-LD
+│   │   ├── layout.tsx       # Root layout, Metadata SEO & JSON-LD
 │   │   └── page.tsx         # Halaman utama aplikasi
 │   ├── components/          # Komponen UI React
-│   │   ├── DownloaderWorkspace.tsx  # Workspace utama (Form + Preview + Formats)
-│   │   ├── Navbar.tsx               # Navigasi atas & mobile menu
-│   │   ├── Features.tsx             # Kartu keunggulan layanan
-│   │   ├── HowItWorks.tsx           # Panduan 3 langkah mudah
-│   │   ├── FAQSection.tsx           # Accordion FAQ & bantuan
-│   │   ├── PlatformBadges.tsx       # Badge platform terdukung
-│   │   └── Footer.tsx               # Footer brand & tautan
-│   ├── lib/                 # Core utilities & bisnis logika
-│   │   ├── extractors/      # Extractor Manager & platform parsers
-│   │   ├── mediaDownloader.ts # Engine pengunduhan & FFmpeg merger
+│   │   ├── DownloaderWorkspace.tsx  # Area input URL, preview, & opsi unduh
+│   │   ├── Navbar.tsx               # Navigasi utama & menu mobile
+│   │   ├── Features.tsx             # Kartu fitur unggulan
+│   │   ├── HowItWorks.tsx           # Panduan 3 langkah penggunaan
+│   │   ├── FAQSection.tsx           # Pertanyaan umum (FAQ)
+│   │   ├── PlatformBadges.tsx       # Badge platform yang didukung
+│   │   └── Footer.tsx               # Footer & tautan navigasi
+│   ├── lib/                 # Logika bisnis & modul pendukung
+│   │   ├── extractors/      # Extractor Manager & parser platform
+│   │   ├── mediaDownloader.ts # Engine pengunduhan & merger FFmpeg
 │   │   ├── rateLimit.ts     # In-memory IP rate limiter
-│   │   ├── security.ts      # Validator keamanan & SSRF guard
-│   │   └── tempStorage.ts   # Manajemen file temporer & TTL cleanup
-│   └── types/               # TypeScript interface & types
-├── ARCHITECTURE.md          # Dokumen arsitektur teknis
-└── README.md                # Dokumentasi proyek
+│   │   ├── security.ts      # Validator keamanan & penangkal SSRF
+│   │   └── tempStorage.ts   # Manajer penyimpanan sementara & auto-cleanup
+│   └── types/               # Definisi tipe TypeScript
+├── ARCHITECTURE.md          # Dokumentasi teknis arsitektur
+└── README.md                # Dokumentasi utama project
 ```
 
 ---
 
 ## 📄 Lisensi
 
-Diterbitkan di bawah lisensi **[MIT License](LICENSE)**. Bebas digunakan, dimodifikasi, dan didistribusikan.
+Project ini dirilis di bawah lisensi **[MIT License](LICENSE)**. Bebas kamu gunakan, modifikasi, dan kembangkan lebih lanjut!
