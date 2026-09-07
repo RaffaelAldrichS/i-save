@@ -23,7 +23,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/fluent-ffmpeg": "^2.1.28",
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
