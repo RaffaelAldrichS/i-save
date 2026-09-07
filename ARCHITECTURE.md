@@ -44,10 +44,14 @@ isave/
 │   │   ├── page.tsx
 │   │   └── layout.tsx
 │   ├── components/
-│   │   ├── ui/               # Shadcn UI components
-│   │   ├── UrlForm.tsx       # Input URL form
-│   │   ├── MediaPreview.tsx  # Result preview & format selector
-│   │   └── ProgressModal.tsx # Processing & download indicator
+│   │   ├── DownloaderWorkspace.tsx # Unified Input, Preview & Format Selector Workspace
+│   │   ├── Navbar.tsx              # Responsive Navigation & Active Section Tracking
+│   │   ├── Footer.tsx              # Brand Footer & Links
+│   │   ├── Features.tsx            # Key Features Cards
+│   │   ├── HowItWorks.tsx          # 3-Step Process Guide
+│   │   ├── FAQSection.tsx          # Accordion FAQ & Help
+│   │   ├── PlatformBadges.tsx      # Supported Platforms Badges
+│   │   └── BrandIcons.tsx          # SVG Platform Icons
 │   ├── lib/
 │   │   ├── extractors/
 │   │   │   ├── index.ts      # Extractor Manager/Router
