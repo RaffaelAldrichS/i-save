@@ -10,9 +10,10 @@ const rethinkSans = Rethink_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://isave.app"),
-  title: "iSAVE — Unduh Video & Audio HD Tanpa Watermark Gratis",
+  title: "iSave Downloader — Unduh Video & Audio HD Tanpa Watermark Gratis",
   description: "Pengunduh media tercepat tanpa watermark. Simpan video MP4 HD & audio MP3 jernih dari YouTube, TikTok, Instagram, dan Facebook secara gratis tanpa pendaftaran.",
   keywords: [
+    "iSave Downloader",
     "unduh video tiktok tanpa watermark",
     "download youtube mp4 hd",
     "instagram reel downloader online",
@@ -24,16 +25,16 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "iSAVE — Unduh Video & Audio HD Tanpa Watermark",
+    title: "iSave Downloader — Unduh Video & Audio HD Tanpa Watermark",
     description: "Simpan video MP4 & audio MP3 kualitas terbaik dari YouTube, TikTok, Instagram, dan Facebook secara gratis dan instan.",
     url: "https://isave.app",
-    siteName: "iSAVE",
+    siteName: "iSave Downloader",
     locale: "id_ID",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "iSAVE — Pengunduh Media HD Tanpa Watermark",
+    title: "iSave Downloader — Pengunduh Media HD Tanpa Watermark",
     description: "Simpan video MP4 & audio MP3 gratis dari YouTube, TikTok, Instagram, dan Facebook dalam hitungan detik.",
   },
 };
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "iSAVE",
+  "name": "iSave Downloader",
   "url": "https://isave.app",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "All",

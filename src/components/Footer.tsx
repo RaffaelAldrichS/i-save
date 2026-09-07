@@ -27,7 +27,7 @@ export const Footer: React.FC = () => {
                 <Download className="w-5 h-5 stroke-[2.5]" aria-hidden="true" />
               </div>
               <span className="font-extrabold text-2xl tracking-tight text-surface">
-                iSAVE
+                iSave Downloader
               </span>
             </a>
             <p className="text-sm text-surface/75 max-w-sm leading-relaxed">

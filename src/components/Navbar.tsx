@@ -75,7 +75,7 @@ export const Navbar: React.FC = () => {
             <Download className="w-5 h-5 stroke-[2.5]" aria-hidden="true" />
           </div>
           <span className="font-extrabold text-2xl tracking-tight text-primary">
-            iSAVE
+            iSave Downloader
           </span>
         </a>
 
