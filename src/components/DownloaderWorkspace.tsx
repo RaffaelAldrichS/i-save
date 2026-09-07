@@ -23,11 +23,28 @@ import {
 } from 'lucide-react';
 import { YoutubeIcon, TiktokIcon, InstagramIcon, FacebookIcon } from './BrandIcons';
 
+export async function handleClipboardPaste(clipboardObj?: Clipboard): Promise<{ url: string | null; error: string | null }> {
+  try {
+    const cb = clipboardObj || (typeof navigator !== 'undefined' ? navigator.clipboard : undefined);
+    if (cb) {
+      const text = await cb.readText();
+      if (text && text.trim()) {
+        return { url: text.trim(), error: null };
+      }
+      return { url: null, error: 'Papan klip (clipboard) kosong' };
+    }
+    return { url: null, error: 'Clipboard tidak didukung peramban ini' };
+  } catch {
+    return { url: null, error: 'Izin clipboard ditolak. Silakan tempel manual (Ctrl+V)' };
+  }
+}
+
 interface DownloaderWorkspaceProps {
   onExtract: (url: string) => void;
   isLoading: boolean;
   metadata: MediaMetadata | null;
   error?: string | null;
+  downloadError?: string | null;
   onDownloadFormat: (formatId: string) => void;
   isProcessingFormat?: string | null;
 }
@@ -37,25 +54,27 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
   isLoading,
   metadata,
   error,
+  downloadError,
   onDownloadFormat,
   isProcessingFormat,
 }) => {
   const [url, setUrl] = useState('');
+  const [pasteError, setPasteError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
+    setPasteError(null);
     onExtract(url.trim());
   };
 
   const handlePaste = async () => {
-    try {
-      if (navigator.clipboard) {
-        const text = await navigator.clipboard.readText();
-        if (text) setUrl(text.trim());
-      }
-    } catch {
-      // Clipboard permission denied or unavailable
+    setPasteError(null);
+    const res = await handleClipboardPaste();
+    if (res.url) {
+      setUrl(res.url);
+    } else if (res.error) {
+      setPasteError(res.error);
     }
   };
 
@@ -75,23 +94,30 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
     >
       {/* 1. URL INPUT FORM */}
       <form onSubmit={handleSubmit} className="w-full space-y-3">
-        <div className="relative flex flex-col sm:flex-row items-stretch gap-2 bg-surface-soft p-2 rounded-2xl border border-border focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+        <label htmlFor="url-input" className="sr-only">
+          Tautan media sosial YouTube, TikTok, Instagram, atau Facebook
+        </label>
+        <div className={`relative flex flex-col sm:flex-row items-stretch gap-2 bg-surface-soft p-2 rounded-2xl border ${error ? 'border-error ring-1 ring-error/20' : 'border-border'} focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all`}>
           <div className="relative flex-1 flex items-center min-h-[52px]">
             <div className="pl-3.5 pr-2.5 text-text-muted select-none">
               <LinkIcon className="w-5 h-5 stroke-[2]" aria-hidden="true" />
             </div>
 
             <input
+              id="url-input"
               type="url"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                if (pasteError) setPasteError(null);
+              }}
               placeholder="Tempelkan tautan YouTube, TikTok, Instagram, atau Facebook..."
               aria-label="Tautan media sosial untuk diunduh"
               required
               disabled={isLoading}
               autoComplete="off"
               spellCheck={false}
-              className="flex-1 bg-transparent text-text text-sm sm:text-base font-medium placeholder:text-text-muted/60 focus:outline-none pr-10 min-w-0"
+              className="flex-1 bg-transparent text-text text-sm sm:text-base font-medium placeholder:text-text-muted/80 focus:outline-none pr-10 min-w-0"
             />
 
             {url ? (
@@ -136,6 +162,14 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
           </button>
         </div>
 
+        {/* Paste Error Toast/Message */}
+        {pasteError && (
+          <div className="text-xs text-error font-medium px-1 flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>{pasteError}</span>
+          </div>
+        )}
+
         {/* Microcopy Trust Badges */}
         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 sm:gap-6 px-1 text-xs font-medium text-text-muted">
           <span className="flex items-center gap-1.5">
@@ -154,7 +188,7 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
       </form>
 
       {/* 2. DYNAMIC WORKSPACE CONTENT AREA */}
-      <div className="border-t border-border/70 pt-6">
+      <div className="border-t border-border/70 pt-6" aria-live="polite" aria-atomic="true">
         {/* State A: Loading / Extraction Spinner */}
         {isLoading && (
           <div className="w-full py-10 px-4 text-center flex flex-col items-center justify-center space-y-3 animate-pulse">
@@ -258,6 +292,20 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Download Error Banner */}
+            {downloadError && (
+              <div
+                role="alert"
+                className="w-full bg-error-bg border border-error-border rounded-xl p-3.5 text-error flex items-start gap-3 text-sm font-medium shadow-xs"
+              >
+                <AlertCircle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-0.5">
+                  <p className="font-bold text-xs uppercase tracking-wide">Gagal Menyiapkan Unduhan</p>
+                  <p className="text-xs">{downloadError}</p>
+                </div>
+              </div>
+            )}
 
             {/* Format Selection Grid */}
             <div className="space-y-3">

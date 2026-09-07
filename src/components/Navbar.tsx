@@ -1,17 +1,56 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Menu, X, CheckCircle2 } from 'lucide-react';
+
+export function getActiveSectionId(sectionIds: string[]): string | null {
+  if (typeof document === 'undefined') return null;
+  let activeId: string | null = null;
+  let minDistance = Infinity;
+  for (const id of sectionIds) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    const distance = Math.abs(rect.top - 80);
+    if (rect.top <= 120 && distance < minDistance) {
+      minDistance = distance;
+      activeId = id;
+    }
+  }
+  return activeId;
+}
+
+const NAV_LINKS = [
+  { label: 'Beranda', href: '#hero' },
+  { label: 'Keunggulan', href: '#keunggulan' },
+  { label: 'Cara Kerja', href: '#cara-kerja' },
+  { label: 'FAQ', href: '#faq' },
+];
+
+const SECTION_IDS = NAV_LINKS.map((l) => l.href.slice(1));
 
 export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
 
-  const navLinks = [
-    { label: 'Beranda', href: '#hero' },
-    { label: 'Keunggulan', href: '#keunggulan' },
-    { label: 'Cara Kerja', href: '#cara-kerja' },
-    { label: 'FAQ', href: '#faq' },
-  ];
+  useEffect(() => {
+    const handleScrollEvent = () => {
+      setActiveSection(getActiveSectionId(SECTION_IDS));
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScrollEvent, { passive: true });
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('scroll', handleScrollEvent);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
@@ -41,16 +80,21 @@ export const Navbar: React.FC = () => {
 
         {/* CENTER: Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              onClick={(e) => handleScroll(e, link.href)}
-              className="text-sm font-semibold text-text-muted hover:text-primary transition-colors"
-            >
-              {link.label}
-            </a>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const isActive = activeSection === link.href.slice(1);
+            return (
+              <a
+                key={link.label}
+                href={link.href}
+                onClick={(e) => handleScroll(e, link.href)}
+                className={`text-sm font-semibold transition-colors ${
+                  isActive ? 'text-primary border-b-2 border-primary py-1' : 'text-text-muted hover:text-primary'
+                }`}
+              >
+                {link.label}
+              </a>
+            );
+          })}
         </nav>
 
         {/* RIGHT: CTA Button (Desktop) */}
@@ -82,20 +126,35 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Menu Backdrop Overlay */}
+      {mobileMenuOpen && (
+        <div
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 top-18 bg-black/40 backdrop-blur-xs md:hidden z-40"
+        />
+      )}
+
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-surface px-4 pt-3 pb-6 space-y-3 shadow-lg">
+        <div className="relative z-50 md:hidden border-b border-border bg-surface px-4 pt-3 pb-6 space-y-3 shadow-lg">
           <nav className="flex flex-col space-y-2">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                onClick={(e) => handleScroll(e, link.href)}
-                className="px-3 py-2 rounded-lg text-base font-semibold text-text hover:bg-primary-soft hover:text-primary transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
+            {NAV_LINKS.map((link) => {
+              const isActive = activeSection === link.href.slice(1);
+              return (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  onClick={(e) => handleScroll(e, link.href)}
+                  className={`px-3 py-2 rounded-lg text-base font-semibold transition-colors ${
+                    isActive ? 'bg-primary-soft text-primary font-bold' : 'text-text hover:bg-primary-soft hover:text-primary'
+                  }`}
+                >
+                  {link.label}
+                </a>
+              );
+            })}
           </nav>
           <div className="pt-2 border-t border-border/60">
             <a

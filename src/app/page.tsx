@@ -19,8 +19,10 @@ type DownloaderState =
 export default function Home() {
   const [state, setState] = useState<DownloaderState>({ status: 'idle' });
   const [processingFormat, setProcessingFormat] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handleExtract = async (url: string) => {
+    setDownloadError(null);
     setState({ status: 'extracting' });
 
     try {
@@ -45,6 +47,7 @@ export default function Home() {
   const handleDownloadFormat = async (formatId: string) => {
     if (state.status !== 'success') return;
     setProcessingFormat(formatId);
+    setDownloadError(null);
 
     try {
       const res = await fetch('/api/download', {
@@ -66,7 +69,7 @@ export default function Home() {
       document.body.removeChild(link);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal memulai unduhan';
-      alert(msg);
+      setDownloadError(msg);
     } finally {
       setProcessingFormat(null);
     }
@@ -80,7 +83,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-background text-text font-sans selection:bg-accent selection:text-primary">
       <Navbar />
 
-      <main className="flex-1 w-full">
+      <main id="main-content" className="flex-1 w-full">
         {/* HERO SECTION WITH SINGLE UNIFIED WORKSPACE */}
         <section id="hero" className="w-full pt-10 pb-16 lg:pt-16 lg:pb-24 overflow-hidden">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-center">
@@ -110,6 +113,7 @@ export default function Home() {
                 isLoading={isLoading}
                 metadata={metadata}
                 error={error}
+                downloadError={downloadError}
                 onDownloadFormat={handleDownloadFormat}
                 isProcessingFormat={processingFormat}
               />

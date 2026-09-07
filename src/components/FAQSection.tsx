@@ -72,16 +72,15 @@ export const FAQSection: React.FC = () => {
                   </div>
                 </button>
 
-                {isOpen && (
-                  <div
-                    id={`faq-answer-${idx}`}
-                    role="region"
-                    aria-labelledby={`faq-btn-${idx}`}
-                    className="px-5 pb-5 pt-1 text-sm text-text-muted leading-relaxed border-t border-border/40"
-                  >
-                    {faq.a}
-                  </div>
-                )}
+                <div
+                  id={`faq-answer-${idx}`}
+                  role="region"
+                  aria-labelledby={`faq-btn-${idx}`}
+                  aria-hidden={!isOpen}
+                  className={`px-5 pb-5 pt-1 text-sm text-text-muted leading-relaxed border-t border-border/40 ${isOpen ? 'block' : 'hidden'}`}
+                >
+                  {faq.a}
+                </div>
               </div>
             );
           })}
