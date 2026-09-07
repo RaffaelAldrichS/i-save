@@ -114,10 +114,20 @@ export async function processMediaDownload(
             });
 
             if (mediaRes.ok && mediaRes.body) {
-              const arrayBuf = await mediaRes.arrayBuffer();
-              const buffer = Buffer.from(arrayBuf);
-              if (buffer.length > 1000) {
-                await fs.promises.writeFile(tempFilePath, buffer);
+              const fileStream = fs.createWriteStream(tempFilePath);
+              const reader = mediaRes.body.getReader();
+              let bytesWritten = 0;
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value) {
+                  fileStream.write(value);
+                  bytesWritten += value.length;
+                }
+              }
+              fileStream.end();
+              
+              if (bytesWritten > 1000) {
                 const titleSlug = (json.data.title || 'tiktok-media')
                   .slice(0, 30)
                   .replace(/[^a-zA-Z0-9]/g, '_');
@@ -158,20 +168,31 @@ export async function processMediaDownload(
       const quality = bitrateMatch ? `${bitrateMatch[1]}k` : '320k';
       ytDlpArgs.push('-x', '--audio-format', 'mp3', '--audio-quality', quality);
     } else {
-      ytDlpArgs.push('-f', '18/22/b[height<=720]/b/bestvideo+bestaudio/best');
+      if (formatId && formatId !== 'best' && formatId !== 'mp4') {
+        ytDlpArgs.push('-f', `${formatId}/bestvideo+bestaudio/best`);
+      } else {
+        ytDlpArgs.push('-f', '18/22/b[height<=720]/b/bestvideo+bestaudio/best');
+      }
     }
 
-    ytDlpArgs.push('-o', tempFilePath, url);
+    ytDlpArgs.push('-o', `${tempFilePath}_%(title)s.%(ext)s`, url);
 
     await execFilePromise('yt-dlp', ytDlpArgs);
 
     // Look for exact file or any file created with prefix
     let actualFilePath = tempFilePath;
+    let originalTitle = `media_${formatId}`;
+    
     if (!fs.existsSync(/*turbopackIgnore: true*/ actualFilePath)) {
       const files = fs.readdirSync(tempDir);
       const matched = files.find((f) => f.startsWith(filePrefix));
       if (matched) {
         actualFilePath = path.join(tempDir, matched);
+        // Extract title from filename (remove prefix)
+        const namePart = matched.substring(filePrefix.length + 1); // +1 for the dot/underscore
+        if (namePart) {
+           originalTitle = namePart.substring(namePart.indexOf('_') + 1).replace(/\.[^/.]+$/, "");
+        }
       }
     }
 
@@ -181,12 +202,14 @@ export async function processMediaDownload(
 
       if (stat.size > 1000) {
         const finalPath = actualFilePath;
+        // Clean title
+        const cleanTitle = originalTitle.replace(/[^a-zA-Z0-9_\-\s]/g, '_').substring(0, 50);
         return {
           filePath: finalPath,
           get buffer() {
             return fs.readFileSync(/*turbopackIgnore: true*/ finalPath);
           },
-          filename: `media_${formatId}.${actualExt}`,
+          filename: `${cleanTitle}.${actualExt}`,
           ext: actualExt,
         };
       }

@@ -56,14 +56,18 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
       aria-modal="true"
       aria-labelledby="qr-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primary/40 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={onClose}
     >
-      <div className="relative w-full max-w-sm bg-surface border border-border rounded-3xl p-6 shadow-2xl space-y-5 text-center">
+      <div 
+        className="relative w-full max-w-sm bg-surface border border-border rounded-3xl p-6 shadow-2xl space-y-5 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Tutup modal QR"
-          className="absolute top-4 right-4 p-2 rounded-xl text-text-muted hover:text-text hover:bg-surface-soft transition-colors cursor-pointer"
+          className="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-xl text-text-muted hover:text-text hover:bg-surface-soft transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>

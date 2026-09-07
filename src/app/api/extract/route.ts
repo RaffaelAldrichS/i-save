@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!isSafeExternalUrl(trimmedUrl)) {
+    if (!(await isSafeExternalUrl(trimmedUrl))) {
       return NextResponse.json(
         { success: false, error: 'URL tidak valid atau mengarah ke alamat internal yang dilarang (SSRF protection)' },
         { status: 400 }

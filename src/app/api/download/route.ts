@@ -38,15 +38,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!isSafeExternalUrl(url)) {
+    if (!(await isSafeExternalUrl(url))) {
       return NextResponse.json(
         { success: false, error: 'URL tidak valid atau mengarah ke alamat internal yang dilarang' },
         { status: 400 }
       );
     }
 
-    // Sanitize formatId (alphanumeric, dash, underscore only) to prevent Path Traversal
-    const safeFormatId = formatId.replace(/[^a-zA-Z0-9_-]/g, '');
+    // Sanitize formatId (alphanumeric, dash, underscore, plus only) to prevent Path Traversal
+    const safeFormatId = formatId.replace(/[^a-zA-Z0-9_\-+]/g, '');
     if (!safeFormatId) {
       return NextResponse.json(
         { success: false, error: 'Format ID tidak valid' },

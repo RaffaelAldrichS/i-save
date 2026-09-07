@@ -3,7 +3,7 @@ import { URL } from 'url';
 /**
  * Validates if a URL is safe from SSRF attacks (blocks private, loopback, and internal IPs).
  */
-export function isSafeExternalUrl(urlStr: string): boolean {
+export async function isSafeExternalUrl(urlStr: string): Promise<boolean> {
   try {
     const parsed = new URL(urlStr);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -17,64 +17,47 @@ export function isSafeExternalUrl(urlStr: string): boolean {
       hostname = hostname.slice(1, -1);
     }
 
-    // Block localhost & loopback names
+    // Resolve DNS to get actual IP
+    const lookup = await import('dns').then(dns => dns.promises.lookup(hostname)).catch(() => null);
+    if (!lookup || !lookup.address) {
+      return false; // Cannot resolve, deny
+    }
+    
+    const ip = lookup.address.toLowerCase();
+
+    // Block localhost & loopback names / IPs
     if (
       hostname === 'localhost' ||
       hostname.endsWith('.localhost') ||
       hostname.endsWith('.local') ||
-      hostname === '0.0.0.0' ||
-      hostname === '::' ||
-      hostname === '::1' ||
-      hostname === '0:0:0:0:0:0:0:1' ||
-      hostname === '0:0:0:0:0:0:0:0'
+      ip === '0.0.0.0' ||
+      ip === '::' ||
+      ip === '::1' ||
+      ip.startsWith('127.') ||
+      ip.startsWith('10.') ||
+      ip.startsWith('192.168.') ||
+      ip.startsWith('169.254.')
     ) {
       return false;
     }
 
-    // Block IPv6 link-local (fe80::/10), unique local (fc00::/7), and IPv4-mapped (::ffff:127.0.0.1)
+    // 172.16.0.0/12 (Private)
+    if (ip.startsWith('172.')) {
+      const p2 = parseInt(ip.split('.')[1], 10);
+      if (p2 >= 16 && p2 <= 31) return false;
+    }
+
+    // IPv6 local blocks
     if (
-      hostname.startsWith('fe80:') ||
-      hostname.startsWith('fe90:') ||
-      hostname.startsWith('fea0:') ||
-      hostname.startsWith('feb0:') ||
-      hostname.startsWith('fc') ||
-      hostname.startsWith('fd') ||
-      hostname.includes('::ffff:')
+      ip.startsWith('fe80:') ||
+      ip.startsWith('fc') ||
+      ip.startsWith('fd') ||
+      ip.includes('::ffff:127.') ||
+      ip.includes('::ffff:10.') ||
+      ip.includes('::ffff:192.168.') ||
+      ip.includes('::ffff:169.254.')
     ) {
       return false;
-    }
-
-    // If pure number (decimal integer IP like 2130706433)
-    if (/^\d+$/.test(hostname)) {
-      return false;
-    }
-
-    // IPv4 check (including octal/hex components)
-    const parts = hostname.split('.');
-    if (parts.length === 4) {
-      const parsedParts = parts.map((part) => {
-        if (/^0x[0-9a-f]+$/i.test(part)) return parseInt(part, 16);
-        if (/^0\d+$/.test(part)) return parseInt(part, 8);
-        if (/^\d+$/.test(part)) return parseInt(part, 10);
-        return NaN;
-      });
-
-      if (parsedParts.every((p) => !isNaN(p) && p >= 0 && p <= 255)) {
-        const [p1, p2] = parsedParts;
-
-        // 127.0.0.0/8 (Loopback)
-        if (p1 === 127) return false;
-        // 10.0.0.0/8 (Private)
-        if (p1 === 10) return false;
-        // 172.16.0.0/12 (Private)
-        if (p1 === 172 && p2 >= 16 && p2 <= 31) return false;
-        // 192.168.0.0/16 (Private)
-        if (p1 === 192 && p2 === 168) return false;
-        // 169.254.0.0/16 (Link-local / AWS Cloud metadata)
-        if (p1 === 169 && p2 === 254) return false;
-        // 0.0.0.0/8
-        if (p1 === 0) return false;
-      }
     }
 
     return true;
@@ -109,10 +92,18 @@ export function getMimeType(extOrFilename: string): string {
 /**
  * Extracts and deduplicates valid HTTP/HTTPS URLs from a multi-line input string.
  */
-export function parseMultiUrls(input: string): string[] {
+export async function parseMultiUrls(input: string): Promise<string[]> {
   if (!input) return [];
   const urlRegex = /(https?:\/\/[^\s]+)/gi;
   const matches = input.match(urlRegex) || [];
-  const valid = matches.filter((u) => isSafeExternalUrl(u.trim()));
-  return Array.from(new Set(valid.map((u) => u.trim())));
+  
+  const results: string[] = [];
+  for (const u of matches) {
+    const trimmed = u.trim();
+    if (await isSafeExternalUrl(trimmed)) {
+      results.push(trimmed);
+    }
+  }
+  
+  return Array.from(new Set(results));
 }

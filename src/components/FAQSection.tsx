@@ -34,9 +34,26 @@ export const FAQSection: React.FC = () => {
     },
   ];
 
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map((faq) => ({
+      "@type": "Question",
+      "name": faq.q,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.a,
+      },
+    })),
+  };
+
   return (
     <section id="faq" className="w-full py-16 lg:py-24 bg-surface-soft/40 border-t border-border/60">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        />
         {/* Section Header */}
         <div className="text-center max-w-xl mx-auto space-y-3 mb-12">
           <span className="inline-block px-3.5 py-1 rounded-full bg-primary-soft text-primary text-xs font-bold uppercase tracking-wider">
