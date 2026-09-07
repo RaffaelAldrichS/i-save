@@ -37,7 +37,7 @@ export class InstagramExtractor implements MediaExtractor {
       ? `Instagram Post (${shortcode}) - Slide ${imgIndex}`
       : `Instagram Post (${shortcode})`;
     let author = '@instagram';
-    let thumbnail = `https://picsum.photos/seed/ig-${shortcode}/600/400`;
+    let thumbnail = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%230E2E1A"/><text x="50%" y="50%" fill="%2384E039" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Instagram Media</text></svg>';
 
     try {
       // Try oEmbed API for Instagram
@@ -48,7 +48,9 @@ export class InstagramExtractor implements MediaExtractor {
         const data = await res.json();
         title = data.title || title;
         author = data.author_name ? `@${data.author_name}` : author;
-        thumbnail = data.thumbnail_url || thumbnail;
+        if (data.thumbnail_url) {
+          thumbnail = data.thumbnail_url;
+        }
       }
     } catch {
       // Fallback if Instagram oEmbed requires auth token

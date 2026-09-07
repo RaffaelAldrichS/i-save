@@ -45,7 +45,9 @@ export async function POST(req: NextRequest) {
     }
 
     const downloadRes = await processMediaDownload(url, safeFormatId);
-    const fileInfo = await tempStorage.saveFile(downloadRes.filename, downloadRes.buffer);
+    const fileInfo = downloadRes.filePath && fs.existsSync(downloadRes.filePath)
+      ? await tempStorage.registerFileFromPath(downloadRes.filePath, downloadRes.filename)
+      : await tempStorage.saveFile(downloadRes.filename, downloadRes.buffer);
 
     return NextResponse.json({
       success: true,
@@ -80,15 +82,26 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const fileBuffer = fs.readFileSync(fileInfo.filePath);
   const ext = path.extname(fileInfo.filePath).replace('.', '') || 'bin';
+  const nodeStream = fs.createReadStream(fileInfo.filePath);
 
-  return new NextResponse(fileBuffer, {
+  const webStream = new ReadableStream({
+    start(controller) {
+      nodeStream.on('data', (chunk) => controller.enqueue(chunk));
+      nodeStream.on('end', () => controller.close());
+      nodeStream.on('error', (err) => controller.error(err));
+    },
+    cancel() {
+      nodeStream.destroy();
+    },
+  });
+
+  return new NextResponse(webStream as unknown as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': `application/${ext}`,
       'Content-Disposition': `attachment; filename="${fileInfo.filename}"`,
-      'Content-Length': fileBuffer.length.toString(),
+      'Content-Length': fileInfo.size.toString(),
     },
   });
 }

@@ -38,6 +38,34 @@ export class TempStorage {
     };
   }
 
+  async registerFileFromPath(originalPath: string, filename: string): Promise<TempFileInfo> {
+    const id = uuidv4();
+    const ext = path.extname(filename) || path.extname(originalPath);
+    const safeFilename = `${id}${ext}`;
+    const targetPath = path.join(this.storageDir, safeFilename);
+
+    try {
+      await fs.promises.rename(originalPath, targetPath);
+    } catch {
+      await fs.promises.copyFile(originalPath, targetPath);
+      try {
+        await fs.promises.unlink(originalPath);
+      } catch {
+        // Ignore unlink error
+      }
+    }
+
+    const stat = await fs.promises.stat(targetPath);
+
+    return {
+      id,
+      filename,
+      filePath: targetPath,
+      size: stat.size,
+      createdAt: stat.birthtime || new Date(),
+    };
+  }
+
   getFile(id: string): TempFileInfo | null {
     try {
       const files = fs.readdirSync(this.storageDir);

@@ -2,26 +2,26 @@
 
 import { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { UrlForm } from '@/components/UrlForm';
 import { PlatformBadges } from '@/components/PlatformBadges';
-import { HeroVisual } from '@/components/HeroVisual';
-import { MediaPreview } from '@/components/MediaPreview';
+import { DownloaderWorkspace } from '@/components/DownloaderWorkspace';
 import { Features } from '@/components/Features';
 import { HowItWorks } from '@/components/HowItWorks';
 import { FAQSection } from '@/components/FAQSection';
 import { Footer } from '@/components/Footer';
 import { MediaMetadata } from '@/types/media';
 
+type DownloaderState =
+  | { status: 'idle' }
+  | { status: 'extracting' }
+  | { status: 'success'; metadata: MediaMetadata }
+  | { status: 'error'; message: string };
+
 export default function Home() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<DownloaderState>({ status: 'idle' });
   const [processingFormat, setProcessingFormat] = useState<string | null>(null);
 
   const handleExtract = async (url: string) => {
-    setIsLoading(true);
-    setError(null);
-    setMetadata(null);
+    setState({ status: 'extracting' });
 
     try {
       const res = await fetch('/api/extract', {
@@ -35,24 +35,22 @@ export default function Home() {
         throw new Error(json.error || 'Gagal mengekstraksi informasi media.');
       }
 
-      setMetadata(json.data);
+      setState({ status: 'success', metadata: json.data });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
-      setError(msg);
-    } finally {
-      setIsLoading(false);
+      setState({ status: 'error', message: msg });
     }
   };
 
   const handleDownloadFormat = async (formatId: string) => {
-    if (!metadata) return;
+    if (state.status !== 'success') return;
     setProcessingFormat(formatId);
 
     try {
       const res = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: metadata.url, formatId }),
+        body: JSON.stringify({ url: state.metadata.url, formatId }),
       });
 
       const json = await res.json();
@@ -68,62 +66,54 @@ export default function Home() {
       document.body.removeChild(link);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal memulai unduhan';
-      setError(msg);
+      alert(msg);
     } finally {
       setProcessingFormat(null);
     }
   };
 
+  const isLoading = state.status === 'extracting';
+  const metadata = state.status === 'success' ? state.metadata : null;
+  const error = state.status === 'error' ? state.message : null;
+
   return (
-    <div className="min-h-screen flex flex-col bg-background text-text font-sans">
+    <div className="min-h-screen flex flex-col bg-background text-text font-sans selection:bg-accent selection:text-primary">
       <Navbar />
 
       <main className="flex-1 w-full">
-        {/* HERO SECTION */}
+        {/* HERO SECTION WITH SINGLE UNIFIED WORKSPACE */}
         <section id="hero" className="w-full pt-10 pb-16 lg:pt-16 lg:pb-24 overflow-hidden">
-          <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-              {/* LEFT COLUMN: Copy & Downloader */}
-              <div className="lg:col-span-7 space-y-6">
-                <div className="space-y-4">
-                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-primary tracking-tight leading-[1.1]">
-                    Unduh Media{' '}
-                    <span className="inline-block px-3 py-0.5 rounded-xl bg-accent text-primary">
-                      Tanpa Batas
-                    </span>
-                  </h1>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-center">
+            {/* Hero Copy */}
+            <div className="space-y-4 max-w-2xl mx-auto">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-primary tracking-tight leading-[1.15]">
+                Unduh Media{' '}
+                <span className="inline-block px-3 py-1 rounded-2xl bg-accent text-primary">
+                  Tanpa Watermark
+                </span>
+              </h1>
 
-                  <p className="text-base sm:text-lg text-text-muted max-w-xl leading-relaxed font-normal">
-                    Simpan video, audio, dan konten dari berbagai platform dengan mudah dan cepat. Cukup tempel tautan, pilih format, dan unduh.
-                  </p>
-                </div>
-
-                {/* Supported Platform Badges */}
-                <PlatformBadges />
-
-                {/* Main Downloader Input Box */}
-                <div className="pt-2 w-full max-w-2xl">
-                  <UrlForm onExtract={handleExtract} isLoading={isLoading} />
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN: Visual Illustration */}
-              <div className="lg:col-span-5 w-full">
-                <HeroVisual />
-              </div>
+              <p className="text-base sm:text-lg text-text-muted leading-relaxed font-normal">
+                Simpan video, audio, dan konten dari YouTube, TikTok, Instagram, dan Facebook secara instan dan 100% gratis.
+              </p>
             </div>
-          </div>
-        </section>
 
-        {/* WORKSPACE PREVIEW / RESULT SECTION */}
-        <section className="w-full pb-16 lg:pb-20">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <MediaPreview
-              metadata={metadata}
-              error={error}
-              onDownloadFormat={handleDownloadFormat}
-              isProcessingFormat={processingFormat}
-            />
+            {/* Supported Platform Badges */}
+            <div className="flex justify-center">
+              <PlatformBadges />
+            </div>
+
+            {/* Main Single Unified Downloader Workspace */}
+            <div className="w-full text-left">
+              <DownloaderWorkspace
+                onExtract={handleExtract}
+                isLoading={isLoading}
+                metadata={metadata}
+                error={error}
+                onDownloadFormat={handleDownloadFormat}
+                isProcessingFormat={processingFormat}
+              />
+            </div>
           </div>
         </section>
 

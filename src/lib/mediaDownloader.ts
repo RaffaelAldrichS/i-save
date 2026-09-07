@@ -7,6 +7,7 @@ import os from 'os';
 const execFilePromise = util.promisify(execFile);
 
 export interface DownloadResult {
+  filePath: string;
   buffer: Buffer;
   filename: string;
   ext: string;
@@ -18,6 +19,9 @@ export async function processMediaDownload(
 ): Promise<DownloadResult> {
   const isAudio = formatId.includes('audio') || formatId.includes('mp3');
   const ext = isAudio ? 'mp3' : 'mp4';
+  const tempDir = os.tmpdir();
+  const filePrefix = `isave_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const tempFilePath = path.join(tempDir, `${filePrefix}.${ext}`);
 
   // 1. TikTok Handler via TikWM API
   if (/tiktok\.com/i.test(url)) {
@@ -44,15 +48,19 @@ export async function processMediaDownload(
               },
             });
 
-            if (mediaRes.ok) {
+            if (mediaRes.ok && mediaRes.body) {
               const arrayBuf = await mediaRes.arrayBuffer();
               const buffer = Buffer.from(arrayBuf);
               if (buffer.length > 1000) {
+                await fs.promises.writeFile(tempFilePath, buffer);
                 const titleSlug = (json.data.title || 'tiktok-video')
                   .slice(0, 30)
                   .replace(/[^a-zA-Z0-9]/g, '_');
                 return {
-                  buffer,
+                  filePath: tempFilePath,
+                  get buffer() {
+                    return fs.readFileSync(tempFilePath);
+                  },
                   filename: `${titleSlug}.${ext}`,
                   ext,
                 };
@@ -67,10 +75,6 @@ export async function processMediaDownload(
   }
 
   // 2. yt-dlp Handler for YouTube, Instagram, TikTok fallback
-  const tempDir = os.tmpdir();
-  const filePrefix = `isave_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const tempFilePath = path.join(tempDir, `${filePrefix}.${ext}`);
-
   try {
     const ytDlpFormat = isAudio
       ? 'ba/best'
@@ -103,17 +107,16 @@ export async function processMediaDownload(
     }
 
     if (fs.existsSync(/*turbopackIgnore: true*/ actualFilePath)) {
-      const buffer = fs.readFileSync(/*turbopackIgnore: true*/ actualFilePath);
+      const stat = fs.statSync(/*turbopackIgnore: true*/ actualFilePath);
       const actualExt = path.extname(actualFilePath).replace('.', '') || ext;
-      try {
-        fs.unlinkSync(actualFilePath);
-      } catch {
-        // Ignore cleanup error
-      }
 
-      if (buffer.length > 1000) {
+      if (stat.size > 1000) {
+        const finalPath = actualFilePath;
         return {
-          buffer,
+          filePath: finalPath,
+          get buffer() {
+            return fs.readFileSync(/*turbopackIgnore: true*/ finalPath);
+          },
           filename: `media_${formatId}.${actualExt}`,
           ext: actualExt,
         };
