@@ -5,11 +5,15 @@ export class InstagramExtractor implements MediaExtractor {
   name = 'Instagram Extractor';
 
   supports(url: string): boolean {
-    return /instagram\.com\/(reel|p|tv)\/([a-zA-Z0-9_-]+)/i.test(url);
+    return /(?:instagram\.com|instagr\.am)\/(?:[a-zA-Z0-9_.]+\/)?(?:reel|reels|p|tv|stories|share\/p|share\/reel)\/([a-zA-Z0-9_-]+)/i.test(
+      url
+    );
   }
 
   extractShortcode(url: string): string | null {
-    const match = url.match(/instagram\.com\/(?:reel|p|tv)\/([a-zA-Z0-9_-]+)/i);
+    const match = url.match(
+      /(?:instagram\.com|instagr\.am)\/(?:[a-zA-Z0-9_.]+\/)?(?:reel|reels|p|tv|stories|share\/p|share\/reel)\/([a-zA-Z0-9_-]+)/i
+    );
     return match ? match[1] : null;
   }
 
@@ -23,7 +27,15 @@ export class InstagramExtractor implements MediaExtractor {
       throw new Error('Kode media Instagram tidak ditemukan dalam URL');
     }
 
-    let title = `Instagram Post (${shortcode})`;
+    const isStory = url.includes('/stories/');
+    const imgIndexMatch = url.match(/[?&]img_index=(\d+)/);
+    const imgIndex = imgIndexMatch ? parseInt(imgIndexMatch[1], 10) : null;
+
+    let title = isStory
+      ? `Instagram Story (${shortcode})`
+      : imgIndex
+      ? `Instagram Post (${shortcode}) - Slide ${imgIndex}`
+      : `Instagram Post (${shortcode})`;
     let author = '@instagram';
     let thumbnail = `https://picsum.photos/seed/ig-${shortcode}/600/400`;
 
@@ -45,17 +57,22 @@ export class InstagramExtractor implements MediaExtractor {
     const formats: MediaFormat[] = [
       {
         id: `ig-${shortcode}-hd`,
-        quality: 'HD Video (MP4)',
+        quality: isStory ? 'Story Video / Media (MP4)' : 'HD Video (MP4)',
         ext: 'mp4',
-        url: `https://example.com/ig-media-${shortcode}.mp4`,
         requiresMerge: false,
         type: 'video',
+      },
+      {
+        id: `ig-${shortcode}-img`,
+        quality: 'Foto High-Res (JPG)',
+        ext: 'jpg',
+        requiresMerge: false,
+        type: 'image',
       },
       {
         id: `ig-${shortcode}-audio`,
         quality: 'Audio Original (MP3)',
         ext: 'mp3',
-        url: `https://example.com/ig-audio-${shortcode}.mp3`,
         requiresMerge: false,
         type: 'audio',
       },

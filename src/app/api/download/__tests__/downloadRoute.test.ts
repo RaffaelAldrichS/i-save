@@ -29,4 +29,19 @@ describe('POST & GET /api/download', () => {
     expect(json.success).toBe(false);
     expect(json.error).toContain('File tidak ditemukan atau telah kadaluarsa');
   });
+
+  it('should return error response instead of 50-byte mock file if download engine fails', async () => {
+    const req = new NextRequest('http://localhost/api/download', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://invalid-domain-does-not-exist.com/test', formatId: 'invalid-fmt' }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.success).toBe(false);
+    expect(json.error).toBeDefined();
+    expect(json.downloadUrl).toBeUndefined();
+  });
 });

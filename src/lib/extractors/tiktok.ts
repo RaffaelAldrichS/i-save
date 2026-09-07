@@ -5,13 +5,13 @@ export class TikTokExtractor implements MediaExtractor {
   name = 'TikTok Extractor';
 
   supports(url: string): boolean {
-    return /(tiktok\.com\/(?:@[a-zA-Z0-9._-]+\/video\/|v\/)|vt\.tiktok\.com\/|vm\.tiktok\.com\/)/i.test(
+    return /(tiktok\.com\/(?:@[a-zA-Z0-9._-]+\/(?:video|photo)\/|v\/|t\/)|vt\.tiktok\.com\/|vm\.tiktok\.com\/)/i.test(
       url
     );
   }
 
   extractVideoId(url: string): string | null {
-    const match = url.match(/\/video\/([0-9]{15,22})/i);
+    const match = url.match(/\/(?:video|photo)\/([0-9]{15,22})/i);
     return match ? match[1] : null;
   }
 

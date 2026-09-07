@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tempStorage } from '@/lib/tempStorage';
 import { apiRateLimiter } from '@/lib/rateLimit';
+import { processMediaDownload } from '@/lib/mediaDownloader';
 import fs from 'fs';
 import path from 'path';
 
@@ -43,8 +44,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const mockContent = Buffer.from(`isave mock download payload for format: ${safeFormatId}`);
-    const fileInfo = await tempStorage.saveFile(`media-${safeFormatId}.mp4`, mockContent);
+    const downloadRes = await processMediaDownload(url, safeFormatId);
+    const fileInfo = await tempStorage.saveFile(downloadRes.filename, downloadRes.buffer);
 
     return NextResponse.json({
       success: true,
