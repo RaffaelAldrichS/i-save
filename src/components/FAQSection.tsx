@@ -13,7 +13,7 @@ export const FAQSection: React.FC = () => {
 
   const faqs: FAQItem[] = [
     {
-      q: 'Apakah iSave gratis digunakan?',
+      q: 'Apakah iSave Downloader gratis digunakan?',
       a: 'Ya, 100% gratis tanpa batasan jumlah pengunduhan dan tanpa memerlukan pendaftaran akun.',
     },
     {
@@ -22,7 +22,11 @@ export const FAQSection: React.FC = () => {
     },
     {
       q: 'Format apa saja yang didukung?',
-      a: 'Kami mendukung berbagai resolusi MP4 (1080p, 720p, 480p) dan ekstraksi audio MP3 kualitas tinggi.',
+      a: 'Kami mendukung resolusi MP4 (1080p, 720p, 480p), MP3 (320k, 192k, 128k), Subtitle Teks (.SRT/.TXT), dan Bundel Photo Slide ZIP.',
+    },
+    {
+      q: 'Platform apa saja yang didukung?',
+      a: 'iSave Downloader mendukung YouTube, TikTok, Instagram, Facebook, Twitter/X, Reddit, dan Threads.',
     },
     {
       q: 'Apakah data saya disimpan di server?',

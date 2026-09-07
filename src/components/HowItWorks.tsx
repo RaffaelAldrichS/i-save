@@ -6,7 +6,7 @@ export const HowItWorks: React.FC = () => {
     {
       number: '1',
       title: 'Tempel Link',
-      description: 'Salin tautan video dari aplikasi YouTube, TikTok, atau Instagram.',
+      description: 'Salin tautan dari YouTube, TikTok, Instagram, Twitter/X, Reddit, atau Threads.',
       icon: LinkIcon,
     },
     {

@@ -1,12 +1,23 @@
 import React from 'react';
-import { YoutubeIcon, TiktokIcon, InstagramIcon, FacebookIcon } from './BrandIcons';
+import {
+  YoutubeIcon,
+  TiktokIcon,
+  InstagramIcon,
+  FacebookIcon,
+  TwitterIcon,
+  RedditIcon,
+  ThreadsIcon,
+} from './BrandIcons';
 
 export const PlatformBadges: React.FC = () => {
   const platforms = [
-    { name: 'YouTube', icon: YoutubeIcon, color: 'text-brand-youtube' },
-    { name: 'TikTok', icon: TiktokIcon, color: 'text-brand-tiktok' },
-    { name: 'Instagram', icon: InstagramIcon, color: 'text-brand-instagram' },
-    { name: 'Facebook', icon: FacebookIcon, color: 'text-brand-facebook' },
+    { name: 'YouTube', icon: YoutubeIcon, color: 'text-rose-500' },
+    { name: 'TikTok', icon: TiktokIcon, color: 'text-cyan-400' },
+    { name: 'Instagram', icon: InstagramIcon, color: 'text-pink-500' },
+    { name: 'Facebook', icon: FacebookIcon, color: 'text-blue-500' },
+    { name: 'Twitter/X', icon: TwitterIcon, color: 'text-slate-200' },
+    { name: 'Reddit', icon: RedditIcon, color: 'text-orange-500' },
+    { name: 'Threads', icon: ThreadsIcon, color: 'text-emerald-400' },
   ];
 
   return (

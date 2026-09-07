@@ -104,7 +104,7 @@ export default function Home() {
               </h1>
 
               <p className="text-base sm:text-lg text-text-muted leading-relaxed font-normal max-w-2xl mx-auto">
-                Simpan video MP4, MP3, dan konten media dari YouTube, TikTok, Instagram & Facebook secara instan. 100% gratis, super cepat, tanpa pendaftaran.
+                Simpan video MP4, MP3, Subtitle & konten media dari YouTube, TikTok, Instagram, Facebook, Twitter/X, Reddit & Threads secara instan. 100% gratis, super cepat, tanpa pendaftaran.
               </p>
             </div>
 

@@ -5,32 +5,32 @@ export const Features: React.FC = () => {
   const featureCards = [
     {
       title: 'Mudah & Cepat',
-      description: 'Hanya dengan menempelkan tautan, media langsung siap diunduh dalam hitungan detik.',
+      description: 'Tempel tautan otomatis dari clipboard, media langsung siap diunduh dalam hitungan detik.',
       icon: Zap,
     },
     {
       title: 'Pilihan Format Lengkap',
-      description: 'Tersedia berbagai format seperti MP4, MP3, dan resolusi hingga HD.',
+      description: 'MP4 HD, MP3 320kbps, Subtitle (.SRT/.TXT), potong durasi trimmer, & Slide Photo ZIP.',
       icon: Film,
     },
     {
       title: 'Unduh Tanpa Aplikasi',
-      description: 'Tidak perlu instal aplikasi tambahan. Semua bisa dilakukan langsung dari browser.',
+      description: 'Tidak perlu instal aplikasi tambahan. Dapat diakses instan via browser PC & PWA HP.',
       icon: Globe,
     },
     {
       title: 'Gratis Selamanya',
-      description: 'Tidak ada batasan unduhan. Gunakan kapan saja, tanpa biaya.',
+      description: 'Tidak ada batasan unduhan. Gunakan kapan saja, tanpa biaya dan tanpa iklan trap.',
       icon: Sparkles,
     },
     {
-      title: 'Dukung Banyak Platform',
-      description: 'YouTube, TikTok, Instagram, Facebook, dan lainnya.',
+      title: 'Dukung 7+ Platform',
+      description: 'YouTube, TikTok, Instagram, Facebook, Twitter/X, Reddit, dan Threads.',
       icon: Layers,
     },
     {
       title: 'Aman & Terpercaya',
-      description: 'Kami menjaga privasi dan keamanan data Anda dengan baik.',
+      description: 'Stateless privacy-first, tanpa riwayat simpanan, dan tanpa pelacakan data pribadi.',
       icon: ShieldCheck,
     },
   ];
@@ -44,7 +44,7 @@ export const Features: React.FC = () => {
             KEUNGGULAN
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-primary tracking-tight">
-            Kenapa Pilih iSAVE?
+            Kenapa Pilih iSave Downloader?
           </h2>
           <p className="text-base text-text-muted">
             Kami menyediakan cara termudah untuk mengunduh media favoritmu dengan kualitas terbaik.
