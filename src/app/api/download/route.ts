@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { tempStorage } from '@/lib/tempStorage';
 import { apiRateLimiter } from '@/lib/rateLimit';
 import { processMediaDownload } from '@/lib/mediaDownloader';
+import { isSafeExternalUrl } from '@/lib/security';
 import fs from 'fs';
 import path from 'path';
 
 export async function POST(req: NextRequest) {
   try {
+    tempStorage.cleanupExpired();
+
     const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
     const rateCheck = apiRateLimiter.check(ip);
 
@@ -31,6 +34,13 @@ export async function POST(req: NextRequest) {
     if (!url || !formatId || typeof formatId !== 'string') {
       return NextResponse.json(
         { success: false, error: 'URL dan formatId wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    if (!isSafeExternalUrl(url)) {
+      return NextResponse.json(
+        { success: false, error: 'URL tidak valid atau mengarah ke alamat internal yang dilarang' },
         { status: 400 }
       );
     }
@@ -100,7 +110,7 @@ export async function GET(req: NextRequest) {
     status: 200,
     headers: {
       'Content-Type': `application/${ext}`,
-      'Content-Disposition': `attachment; filename="${fileInfo.filename}"`,
+      'Content-Disposition': `attachment; filename="${fileInfo.filename.replace(/["\\\r\n]/g, '_')}"`,
       'Content-Length': fileInfo.size.toString(),
     },
   });

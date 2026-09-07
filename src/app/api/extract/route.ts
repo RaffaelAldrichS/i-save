@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractorManager } from '@/lib/extractors';
 import { apiRateLimiter } from '@/lib/rateLimit';
+import { isSafeExternalUrl } from '@/lib/security';
+import { tempStorage } from '@/lib/tempStorage';
 
 export async function POST(req: NextRequest) {
   try {
+    tempStorage.cleanupExpired();
+
     const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
     const rateCheck = apiRateLimiter.check(ip);
 
@@ -43,17 +47,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    try {
-      const parsedUrl = new URL(trimmedUrl);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        return NextResponse.json(
-          { success: false, error: 'Protokol URL tidak valid (Wajib http atau https)' },
-          { status: 400 }
-        );
-      }
-    } catch {
+    if (!isSafeExternalUrl(trimmedUrl)) {
       return NextResponse.json(
-        { success: false, error: 'Format URL tidak valid' },
+        { success: false, error: 'URL tidak valid atau mengarah ke alamat internal yang dilarang (SSRF protection)' },
         { status: 400 }
       );
     }
