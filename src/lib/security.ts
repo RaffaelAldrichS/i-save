@@ -10,7 +10,12 @@ export function isSafeExternalUrl(urlStr: string): boolean {
       return false;
     }
 
-    const hostname = parsed.hostname.toLowerCase();
+    let hostname = parsed.hostname.toLowerCase();
+
+    // Remove brackets if IPv6
+    if (hostname.startsWith('[') && hostname.endsWith(']')) {
+      hostname = hostname.slice(1, -1);
+    }
 
     // Block localhost & loopback names
     if (
@@ -18,29 +23,58 @@ export function isSafeExternalUrl(urlStr: string): boolean {
       hostname.endsWith('.localhost') ||
       hostname.endsWith('.local') ||
       hostname === '0.0.0.0' ||
-      hostname === '::1'
+      hostname === '::' ||
+      hostname === '::1' ||
+      hostname === '0:0:0:0:0:0:0:1' ||
+      hostname === '0:0:0:0:0:0:0:0'
     ) {
       return false;
     }
 
-    // IPv4 check
-    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-    const match = hostname.match(ipv4Regex);
-    if (match) {
-      const [, p1, p2] = match.map(Number);
+    // Block IPv6 link-local (fe80::/10), unique local (fc00::/7), and IPv4-mapped (::ffff:127.0.0.1)
+    if (
+      hostname.startsWith('fe80:') ||
+      hostname.startsWith('fe90:') ||
+      hostname.startsWith('fea0:') ||
+      hostname.startsWith('feb0:') ||
+      hostname.startsWith('fc') ||
+      hostname.startsWith('fd') ||
+      hostname.includes('::ffff:')
+    ) {
+      return false;
+    }
 
-      // 127.0.0.0/8 (Loopback)
-      if (p1 === 127) return false;
-      // 10.0.0.0/8 (Private)
-      if (p1 === 10) return false;
-      // 172.16.0.0/12 (Private)
-      if (p1 === 172 && p2 >= 16 && p2 <= 31) return false;
-      // 192.168.0.0/16 (Private)
-      if (p1 === 192 && p2 === 168) return false;
-      // 169.254.0.0/16 (Link-local / AWS Cloud metadata)
-      if (p1 === 169 && p2 === 254) return false;
-      // 0.0.0.0/8
-      if (p1 === 0) return false;
+    // If pure number (decimal integer IP like 2130706433)
+    if (/^\d+$/.test(hostname)) {
+      return false;
+    }
+
+    // IPv4 check (including octal/hex components)
+    const parts = hostname.split('.');
+    if (parts.length === 4) {
+      const parsedParts = parts.map((part) => {
+        if (/^0x[0-9a-f]+$/i.test(part)) return parseInt(part, 16);
+        if (/^0\d+$/.test(part)) return parseInt(part, 8);
+        if (/^\d+$/.test(part)) return parseInt(part, 10);
+        return NaN;
+      });
+
+      if (parsedParts.every((p) => !isNaN(p) && p >= 0 && p <= 255)) {
+        const [p1, p2] = parsedParts;
+
+        // 127.0.0.0/8 (Loopback)
+        if (p1 === 127) return false;
+        // 10.0.0.0/8 (Private)
+        if (p1 === 10) return false;
+        // 172.16.0.0/12 (Private)
+        if (p1 === 172 && p2 >= 16 && p2 <= 31) return false;
+        // 192.168.0.0/16 (Private)
+        if (p1 === 192 && p2 === 168) return false;
+        // 169.254.0.0/16 (Link-local / AWS Cloud metadata)
+        if (p1 === 169 && p2 === 254) return false;
+        // 0.0.0.0/8
+        if (p1 === 0) return false;
+      }
     }
 
     return true;
