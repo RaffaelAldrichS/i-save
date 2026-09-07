@@ -114,8 +114,10 @@ export const Navbar: React.FC = () => {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu"
             aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
-            className="p-2 rounded-lg text-primary hover:bg-primary-soft transition-colors cursor-pointer"
+            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-primary hover:bg-primary-soft transition-colors cursor-pointer"
           >
             {mobileMenuOpen ? (
               <X className="w-6 h-6 stroke-[2]" aria-hidden="true" />
@@ -132,13 +134,14 @@ export const Navbar: React.FC = () => {
           tabIndex={-1}
           aria-hidden="true"
           onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 top-18 bg-black/40 backdrop-blur-xs md:hidden z-40"
+          className="fixed inset-0 top-18 backdrop-blur-xs md:hidden z-40"
+          style={{ backgroundColor: 'var(--color-overlay)' }}
         />
       )}
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="relative z-50 md:hidden border-b border-border bg-surface px-4 pt-3 pb-6 space-y-3 shadow-lg">
+        <div id="mobile-menu" className="relative z-50 md:hidden border-b border-border bg-surface px-4 pt-3 pb-6 space-y-3 shadow-lg">
           <nav className="flex flex-col space-y-2">
             {NAV_LINKS.map((link) => {
               const isActive = activeSection === link.href.slice(1);

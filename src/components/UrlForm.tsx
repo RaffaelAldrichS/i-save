@@ -33,7 +33,7 @@ export const UrlForm: React.FC<UrlFormProps> = ({ onExtract, isLoading }) => {
       {/* Downloader Input Container */}
       <form
         onSubmit={handleSubmit}
-        className="w-full bg-surface p-2 sm:p-2.5 rounded-2xl border border-border shadow-card hover:border-border-hover transition-colors flex flex-col sm:flex-row gap-2 items-stretch"
+        className="w-full bg-surface p-2 sm:p-2.5 rounded-2xl border border-transparent shadow-card hover:border-border-hover transition-colors flex flex-col sm:flex-row gap-2 items-stretch"
       >
         <div className="relative flex-1 flex items-center min-h-[52px]">
           <div className="pl-3.5 pr-2 text-text-muted">

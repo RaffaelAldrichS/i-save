@@ -88,16 +88,16 @@ export default function Home() {
         <section id="hero" className="w-full pt-10 pb-16 lg:pt-16 lg:pb-24 overflow-hidden">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-center">
             {/* Hero Copy */}
-            <div className="space-y-4 max-w-2xl mx-auto">
+            <div className="space-y-4 max-w-3xl mx-auto">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-primary tracking-tight leading-[1.15]">
-                Unduh Media{' '}
+                Unduh Video & Audio HD{' '}
                 <span className="inline-block px-3 py-1 rounded-2xl bg-accent text-primary">
                   Tanpa Watermark
                 </span>
               </h1>
 
-              <p className="text-base sm:text-lg text-text-muted leading-relaxed font-normal">
-                Simpan video, audio, dan konten dari YouTube, TikTok, Instagram, dan Facebook secara instan dan 100% gratis.
+              <p className="text-base sm:text-lg text-text-muted leading-relaxed font-normal max-w-2xl mx-auto">
+                Simpan video MP4, MP3, dan konten media dari YouTube, TikTok, Instagram & Facebook secara instan. 100% gratis, super cepat, tanpa pendaftaran.
               </p>
             </div>
 

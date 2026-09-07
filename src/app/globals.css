@@ -7,17 +7,31 @@
   --color-primary: #0E2E1A;
   --color-primary-hover: #164327;
   --color-primary-soft: #E6F4EB;
-  --color-secondary: #276749;
+  --color-secondary: #1F523A;
   --color-accent: #84E039;
   --color-accent-soft: #EAF8DF;
   --color-accent-dark: #6BC822;
   --color-text: #0E1F14;
-  --color-text-muted: #4F6354;
-  --color-border: #E1E8E2;
-  --color-border-hover: #C2D1C5;
+  --color-text-muted: #3D4F42;
+  --color-border: #D8E0DA;
+  --color-border-hover: #B4C4B8;
   --color-error: #DC2626;
   --color-error-bg: #FEF2F2;
   --color-error-border: #FCA5A5;
+
+  /* Brand Platform Tokens */
+  --color-brand-youtube: #FF0000;
+  --color-brand-tiktok: #0E1F14;
+  --color-brand-instagram: #E1306C;
+  --color-brand-facebook: #1877F2;
+
+  /* Overlay & Translucent Tokens */
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-overlay-dark: rgba(0, 0, 0, 0.75);
+  --color-surface-translucent: rgba(255, 255, 255, 0.1);
+  --color-surface-translucent-hover: rgba(255, 255, 255, 0.2);
+  --color-surface-translucent-border: rgba(255, 255, 255, 0.15);
+  --color-surface-white: #FFFFFF;
 
   --font-sans: "Rethink Sans", var(--font-rethink-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
 

@@ -10,15 +10,22 @@ const rethinkSans = Rethink_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://isave.app"),
-  title: "iSAVE — Unduh Video & Audio YouTube, TikTok, Instagram Gratis",
-  description: "Simpan video MP4, MP3, dan konten media dari YouTube, TikTok, Instagram, dan Facebook dengan cepat, 100% gratis, tanpa watermark.",
-  keywords: ["unduh video tiktok", "download youtube mp4", "instagram reel downloader", "tiktok no watermark", "isave", "media downloader"],
+  title: "iSAVE — Unduh Video & Audio HD Tanpa Watermark Gratis",
+  description: "Pengunduh media tercepat tanpa watermark. Simpan video MP4 HD & audio MP3 jernih dari YouTube, TikTok, Instagram, dan Facebook secara gratis tanpa pendaftaran.",
+  keywords: [
+    "unduh video tiktok tanpa watermark",
+    "download youtube mp4 hd",
+    "instagram reel downloader online",
+    "convert youtube to mp3",
+    "facebook video downloader",
+    "isave media downloader",
+  ],
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "iSAVE — Unduh Video & Audio YouTube, TikTok, Instagram Gratis",
-    description: "Simpan video MP4, MP3, dan konten media dari YouTube, TikTok, Instagram, dan Facebook tanpa watermark.",
+    title: "iSAVE — Unduh Video & Audio HD Tanpa Watermark",
+    description: "Simpan video MP4 & audio MP3 kualitas terbaik dari YouTube, TikTok, Instagram, dan Facebook secara gratis dan instan.",
     url: "https://isave.app",
     siteName: "iSAVE",
     locale: "id_ID",
@@ -26,8 +33,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "iSAVE — Unduh Video & Audio Tanpa Watermark",
-    description: "Simpan video MP4 & MP3 gratis dari YouTube, TikTok, Instagram, dan Facebook.",
+    title: "iSAVE — Pengunduh Media HD Tanpa Watermark",
+    description: "Simpan video MP4 & audio MP3 gratis dari YouTube, TikTok, Instagram, dan Facebook dalam hitungan detik.",
   },
 };
 
@@ -38,12 +45,20 @@ const jsonLd = {
   "url": "https://isave.app",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "All",
-  "description": "Pengunduh media gratis tanpa watermark untuk YouTube, TikTok, Instagram, dan Facebook.",
+  "description": "Pengunduh media online gratis tanpa watermark untuk YouTube, TikTok, Instagram, dan Facebook.",
+  "softwareVersion": "1.0.0",
   "offers": {
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "USD",
   },
+  "featureList": [
+    "Unduh video TikTok tanpa watermark",
+    "Konversi video YouTube ke MP4 HD dan MP3",
+    "Simpan Instagram Reels & Posts HD",
+    "Unduh video Facebook kualitas tinggi",
+    "100% Stateless & Bebas Pendaftaran"
+  ]
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

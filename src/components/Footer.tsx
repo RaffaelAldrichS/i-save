@@ -66,16 +66,16 @@ export const Footer: React.FC = () => {
           <div className="md:col-span-3 space-y-3">
             <h4 className="text-xs font-bold text-accent uppercase tracking-wider">Dukungan Platform</h4>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-surface/10 hover:bg-surface/20 text-surface flex items-center justify-center transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-surface-translucent hover:bg-surface-translucent-hover text-surface flex items-center justify-center transition-colors">
                 <YoutubeIcon className="w-5 h-5 text-surface" />
               </div>
-              <div className="w-9 h-9 rounded-xl bg-surface/10 hover:bg-surface/20 text-surface flex items-center justify-center transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-surface-translucent hover:bg-surface-translucent-hover text-surface flex items-center justify-center transition-colors">
                 <TiktokIcon className="w-5 h-5 text-surface" />
               </div>
-              <div className="w-9 h-9 rounded-xl bg-surface/10 hover:bg-surface/20 text-surface flex items-center justify-center transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-surface-translucent hover:bg-surface-translucent-hover text-surface flex items-center justify-center transition-colors">
                 <InstagramIcon className="w-5 h-5 text-surface" />
               </div>
-              <div className="w-9 h-9 rounded-xl bg-surface/10 hover:bg-surface/20 text-surface flex items-center justify-center transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-surface-translucent hover:bg-surface-translucent-hover text-surface flex items-center justify-center transition-colors">
                 <FacebookIcon className="w-5 h-5 text-surface" />
               </div>
             </div>
@@ -83,15 +83,15 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Divider */}
-        <div className="w-full h-px bg-surface/10" />
+        <div className="w-full h-px bg-surface-translucent-border" />
 
         {/* Bottom Row */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-surface/60">
           <p>© {new Date().getFullYear()} iSAVE. Semua hak dilindungi.</p>
           <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-surface transition-colors">Privasi</a>
-            <span className="text-surface/20">•</span>
-            <a href="#" className="hover:text-surface transition-colors">Syarat & Ketentuan</a>
+            <a href="#faq" onClick={(e) => handleScroll(e, '#faq')} className="hover:text-surface transition-colors">Privasi</a>
+            <span className="text-surface-translucent-border">•</span>
+            <a href="#faq" onClick={(e) => handleScroll(e, '#faq')} className="hover:text-surface transition-colors">Syarat & Ketentuan</a>
           </div>
         </div>
       </div>
