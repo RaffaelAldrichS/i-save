@@ -20,11 +20,21 @@
 # production
 /build
 
-# misc
+# misc & agent tools
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
 .codegraph/
+.impeccable/
 screencapture-*.png
+*.log
+
+# IDE & editors
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # debug
 npm-debug.log*
@@ -37,8 +47,12 @@ yarn-error.log*
 .env*.local
 !.env.example
 
-# temp downloads
+# temp downloads & caches
 isave-temp-downloads/
+.turbo/
+.cache/
+tmp/
+temp/
 
 # vercel
 .vercel
