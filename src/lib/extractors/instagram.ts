@@ -1,10 +1,10 @@
 import { MediaExtractor } from './types';
 import { MediaMetadata, MediaFormat } from '@/types/media';
 import { generateAudioFormats } from '../audioOptions';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import util from 'util';
 
-const execPromise = util.promisify(exec);
+const execFilePromise = util.promisify(execFile);
 
 export class InstagramExtractor implements MediaExtractor {
   name = 'Instagram Extractor';
@@ -48,10 +48,11 @@ export class InstagramExtractor implements MediaExtractor {
     let formats: MediaFormat[] = [];
 
     try {
-      const { stdout, stderr } = await execPromise(
-        `yt-dlp --dump-single-json --no-playlist "${url}"`,
+      const { stdout, stderr } = await execFilePromise(
+        'yt-dlp',
+        ['--dump-single-json', '--no-playlist', url],
         { maxBuffer: 20 * 1024 * 1024, timeout: 15000 }
-      ).catch((err) => ({ stdout: err.stdout || '', stderr: err.stderr || '' }));
+      ).catch((err) => ({ stdout: (err as { stdout?: string }).stdout || '', stderr: (err as { stderr?: string }).stderr || '' }));
 
       let parsed: {
         uploader?: string;

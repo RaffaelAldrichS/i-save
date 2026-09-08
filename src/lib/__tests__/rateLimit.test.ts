@@ -56,4 +56,34 @@ describe('RateLimiter Middleware', () => {
     headersMap.delete('cf-connecting-ip');
     expect(getClientIp(mockReq)).toBe('198.51.100.10');
   });
+
+  it('should reject private/reserved/spoofed CF IPs and fall through to the first public XFF value (LOGIC-07 regression)', () => {
+    const headersMap = new Map<string, string>();
+    const mockReq = {
+      headers: {
+        get: (key: string) => headersMap.get(key.toLowerCase()) || null,
+      },
+    };
+
+    headersMap.set('cf-connecting-ip', '10.0.0.1');
+    headersMap.set('x-forwarded-for', '203.0.113.99, 10.0.0.1');
+    expect(getClientIp(mockReq)).toBe('203.0.113.99');
+
+    headersMap.delete('cf-connecting-ip');
+    headersMap.set('x-real-ip', '192.168.1.1');
+    expect(getClientIp(mockReq)).toBe('203.0.113.99');
+  });
+
+  it('should return 127.0.0.1 only when no usable public IP exists', () => {
+    const headersMap = new Map<string, string>();
+    const mockReq = {
+      headers: {
+        get: (key: string) => headersMap.get(key.toLowerCase()) || null,
+      },
+    };
+
+    headersMap.set('cf-connecting-ip', '10.0.0.1');
+    headersMap.set('x-forwarded-for', '192.168.1.1, 10.0.0.1');
+    expect(getClientIp(mockReq)).toBe('127.0.0.1');
+  });
 });

@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
   let activeJobId: string | undefined;
   try {
     tempStorage.cleanupExpired();
+    progressTracker.cleanupOldJobs();
 
     const ip = getClientIp(req);
     const rateCheck = apiRateLimiter.check(ip);
@@ -76,7 +77,11 @@ export async function POST(req: NextRequest) {
       filename: fileInfo.filename,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Gagal memproses unduhan';
+    const raw = err instanceof Error ? err.message : 'Gagal memproses unduhan';
+    const message = raw
+      .replace(/\/[^\s'"]+/g, '[path]')
+      .replace(/yt-dlp[^\n]*/gi, 'unduhan gagal')
+      .substring(0, 200);
     if (activeJobId) {
       progressTracker.setError(activeJobId, message);
     }

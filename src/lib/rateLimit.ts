@@ -73,17 +73,38 @@ export class RateLimiter {
 
 export const apiRateLimiter = new RateLimiter(10, 60 * 1000); // 10 requests per minute
 
+const PRIVATE_IP_RANGES = [
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^169\.254\./,
+  /^0\./,
+];
+
+function isPrivateOrReserved(ip: string): boolean {
+  return PRIVATE_IP_RANGES.some((r) => r.test(ip));
+}
+
 export function getClientIp(req: { headers: { get(name: string): string | null } }): string {
   const cfIp = req.headers.get('cf-connecting-ip');
-  if (cfIp) return cfIp.trim();
+  if (cfIp) {
+    const trimmed = cfIp.trim();
+    if (trimmed && !isPrivateOrReserved(trimmed)) return trimmed;
+  }
 
   const realIp = req.headers.get('x-real-ip');
-  if (realIp) return realIp.trim();
+  if (realIp) {
+    const trimmed = realIp.trim();
+    if (trimmed && !isPrivateOrReserved(trimmed)) return trimmed;
+  }
 
   const forwarded = req.headers.get('x-forwarded-for');
   if (forwarded) {
     const ips = forwarded.split(',').map((s) => s.trim());
-    if (ips.length > 0 && ips[0]) return ips[0];
+    for (const ip of ips) {
+      if (ip && !isPrivateOrReserved(ip)) return ip;
+    }
   }
 
   return '127.0.0.1';
