@@ -1,30 +1,41 @@
-import { MediaExtractor } from './types';
-import { YouTubeExtractor } from './youtube';
-import { TikTokExtractor } from './tiktok';
-import { InstagramExtractor } from './instagram';
-import { MediaMetadata } from '@/types/media';
+import { Provider } from './types';
+import { YouTubeProvider } from './youtube';
+import { TikTokProvider } from './tiktok';
+import { InstagramProvider } from './instagram';
+import { MediaResult } from '@/types/media';
 
-export class ExtractorManager {
-  private extractors: MediaExtractor[] = [
-    new YouTubeExtractor(),
-    new TikTokExtractor(),
-    new InstagramExtractor(),
-  ];
+export class ProviderRegistry {
+  private providers: Provider[] = [];
 
-  getExtractor(url: string): MediaExtractor | undefined {
-    return this.extractors.find((ext) => ext.supports(url));
+  constructor() {
+    this.register(new YouTubeProvider());
+    this.register(new TikTokProvider());
+    this.register(new InstagramProvider());
   }
 
-  async extract(url: string): Promise<MediaMetadata> {
-    const extractor = this.getExtractor(url);
-    if (!extractor) {
+  register(provider: Provider): void {
+    this.providers.push(provider);
+  }
+
+  getProvider(url: string): Provider | undefined {
+    return this.providers.find((p) => p.match(url) || p.supports(url));
+  }
+
+  // Alias for backward compatibility
+  getExtractor(url: string): Provider | undefined {
+    return this.getProvider(url);
+  }
+
+  async extract(url: string): Promise<MediaResult> {
+    const provider = this.getProvider(url);
+    if (!provider) {
       throw new Error('Platform URL tidak didukung saat ini');
     }
-    return extractor.extract(url);
+    return provider.extract(url);
   }
 
-  async extractBatch(urls: string[]): Promise<MediaMetadata[]> {
-    const results: MediaMetadata[] = [];
+  async extractBatch(urls: string[]): Promise<MediaResult[]> {
+    const results: MediaResult[] = [];
     for (const url of urls) {
       try {
         const meta = await this.extract(url);
@@ -37,4 +48,7 @@ export class ExtractorManager {
   }
 }
 
-export const extractorManager = new ExtractorManager();
+export const providerRegistry = new ProviderRegistry();
+// Backward compatibility exports
+export const ExtractorManager = ProviderRegistry;
+export const extractorManager = providerRegistry;

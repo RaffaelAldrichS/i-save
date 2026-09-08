@@ -1,15 +1,19 @@
-import { MediaExtractor } from './types';
-import { MediaMetadata, MediaFormat } from '@/types/media';
+import { Provider } from './types';
+import { MediaResult, MediaItem, ContentType } from '@/types/media';
 import { generateAudioFormats } from '../audioOptions';
 import { createCarouselFormats } from '../carouselZip';
 
-export class TikTokExtractor implements MediaExtractor {
+export class TikTokProvider implements Provider {
   name = 'TikTok Extractor';
 
-  supports(url: string): boolean {
+  match(url: string): boolean {
     return /(tiktok\.com\/(?:@[a-zA-Z0-9._-]+\/(?:video|photo)\/|v\/|t\/)|vt\.tiktok\.com\/|vm\.tiktok\.com\/)/i.test(
       url
     );
+  }
+
+  supports(url: string): boolean {
+    return this.match(url);
   }
 
   extractVideoId(url: string): string | null {
@@ -17,14 +21,14 @@ export class TikTokExtractor implements MediaExtractor {
     return match ? match[1] : null;
   }
 
-  async extract(url: string): Promise<MediaMetadata> {
+  async extract(url: string): Promise<MediaResult> {
     if (!this.supports(url)) {
       throw new Error('URL TikTok tidak valid');
     }
 
     let videoId = this.extractVideoId(url);
     let title = 'TikTok Video (No Watermark)';
-    let author = '@tiktok';
+    let authorName = '@tiktok';
     let thumbnail = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%230E2E1A"/><text x="50%" y="50%" fill="%2384E039" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="middle" dominant-baseline="middle">TikTok Media</text></svg>';
     let images: string[] = [];
 
@@ -36,7 +40,7 @@ export class TikTokExtractor implements MediaExtractor {
         const json = await tikwmRes.json();
         if (json.data) {
           title = json.data.title || title;
-          author = json.data.author?.nickname ? `@${json.data.author.nickname}` : author;
+          authorName = json.data.author?.nickname ? `@${json.data.author.nickname}` : authorName;
           thumbnail = json.data.cover || thumbnail;
           if (json.data.play) {
             previewUrl = json.data.play.startsWith('http')
@@ -57,7 +61,7 @@ export class TikTokExtractor implements MediaExtractor {
         if (res.ok) {
           const data = await res.json();
           title = data.title || title;
-          author = data.author_name ? `@${data.author_name}` : author;
+          authorName = data.author_name ? `@${data.author_name}` : authorName;
           if (data.thumbnail_url) {
             thumbnail = data.thumbnail_url;
           }
@@ -76,32 +80,48 @@ export class TikTokExtractor implements MediaExtractor {
       videoId = shortIdMatch ? shortIdMatch[1] : `tt-${Date.now()}`;
     }
 
-    const formats: MediaFormat[] = [];
+    const contentType: ContentType = images.length > 0 ? 'carousel' : 'video';
+    const mediaItems: MediaItem[] = [];
 
     if (images.length > 0) {
-      formats.push(...createCarouselFormats(`tiktok-${videoId}`, images));
+      mediaItems.push(...createCarouselFormats(`tiktok-${videoId}`, images));
     } else {
-      formats.push({
+      mediaItems.push({
         id: `tiktok-${videoId}-no-wm`,
+        type: 'video',
+        mimeType: 'video/mp4',
         quality: 'HD (No Watermark)',
         ext: 'mp4',
         requiresMerge: false,
-        type: 'video',
       });
     }
 
-    formats.push(...generateAudioFormats(`tiktok-${videoId}`));
+    mediaItems.push(...generateAudioFormats(`tiktok-${videoId}`));
+
+    const authorDisplayName = authorName.startsWith('@') ? authorName : `@${authorName}`;
+    const authorUsername = authorName.startsWith('@') ? authorName.slice(1) : authorName.toLowerCase().replace(/\s+/g, '');
 
     return {
       id: videoId,
       url,
       platform: 'tiktok',
+      contentType,
+      source: {
+        url,
+        domain: 'tiktok.com',
+      },
+      author: {
+        username: authorUsername,
+        displayName: authorDisplayName,
+      },
       title,
       thumbnail,
-      author,
       previewUrl,
       images: images.length > 0 ? images : undefined,
-      formats,
+      media: mediaItems,
+      formats: mediaItems,
     };
   }
 }
+
+export const TikTokExtractor = TikTokProvider;

@@ -165,7 +165,7 @@ export const MediaPreview: React.FC<MediaPreviewProps> = ({
             {metadata.author && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-soft border border-border/60">
                 <User className="w-3.5 h-3.5 text-secondary" aria-hidden="true" />
-                {metadata.author}
+                {typeof metadata.author === 'string' ? metadata.author : (metadata.author.displayName || metadata.author.username || '')}
               </span>
             )}
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-soft border border-border/60">

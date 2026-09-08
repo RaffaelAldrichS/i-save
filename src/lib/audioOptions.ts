@@ -1,32 +1,35 @@
-import { MediaFormat } from '@/types/media';
+import { MediaItem } from '@/types/media';
 
 export type AudioBitrate = '320kbps' | '192kbps' | '128kbps';
 
-export function generateAudioFormats(mediaId: string): MediaFormat[] {
+export function generateAudioFormats(mediaId: string): MediaItem[] {
   return [
     {
       id: `${mediaId}-audio-320kbps`,
+      type: 'audio',
+      mimeType: 'audio/mpeg',
       quality: 'Audio MP3 (320kbps High Quality)',
       ext: 'mp3',
       formatId: 'audio-320kbps',
       requiresMerge: false,
-      type: 'audio',
     },
     {
       id: `${mediaId}-audio-192kbps`,
+      type: 'audio',
+      mimeType: 'audio/mpeg',
       quality: 'Audio MP3 (192kbps Standard)',
       ext: 'mp3',
       formatId: 'audio-192kbps',
       requiresMerge: false,
-      type: 'audio',
     },
     {
       id: `${mediaId}-audio-128kbps`,
+      type: 'audio',
+      mimeType: 'audio/mpeg',
       quality: 'Audio MP3 (128kbps Ringtone/Compact)',
       ext: 'mp3',
       formatId: 'audio-128kbps',
       requiresMerge: false,
-      type: 'audio',
     },
   ];
 }

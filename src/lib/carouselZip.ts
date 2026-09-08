@@ -1,20 +1,21 @@
 import JSZip from 'jszip';
-import { MediaFormat } from '@/types/media';
+import { MediaItem } from '@/types/media';
 
 export interface ImageFile {
   filename: string;
   buffer: Buffer;
 }
 
-export function createCarouselFormats(mediaId: string, imageUrls: string[]): MediaFormat[] {
-  const formats: MediaFormat[] = [
+export function createCarouselFormats(mediaId: string, imageUrls: string[]): MediaItem[] {
+  const formats: MediaItem[] = [
     {
       id: `${mediaId}-zip-bundle`,
+      type: 'gallery',
+      mimeType: 'application/zip',
       quality: 'Unduh Semua Foto (ZIP Paket)',
       ext: 'zip',
       formatId: 'carousel-zip',
       requiresMerge: false,
-      type: 'gallery',
       images: imageUrls,
     },
   ];
@@ -22,12 +23,13 @@ export function createCarouselFormats(mediaId: string, imageUrls: string[]): Med
   imageUrls.forEach((url, idx) => {
     formats.push({
       id: `${mediaId}-img-${idx + 1}`,
+      type: 'image',
+      mimeType: 'image/jpeg',
       quality: `Foto Slide ${idx + 1} (JPG)`,
       ext: 'jpg',
       url,
       formatId: `slide-${idx + 1}`,
       requiresMerge: false,
-      type: 'image',
     });
   });
 

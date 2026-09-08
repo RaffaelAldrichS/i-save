@@ -1,18 +1,22 @@
-import { MediaExtractor } from './types';
-import { MediaMetadata, MediaFormat } from '@/types/media';
+import { Provider } from './types';
+import { MediaResult, MediaItem, ContentType } from '@/types/media';
 import { generateAudioFormats } from '../audioOptions';
 import { execFile } from 'child_process';
 import util from 'util';
 
 const execFilePromise = util.promisify(execFile);
 
-export class InstagramExtractor implements MediaExtractor {
+export class InstagramProvider implements Provider {
   name = 'Instagram Extractor';
 
-  supports(url: string): boolean {
+  match(url: string): boolean {
     return /(?:instagram\.com|instagr\.am)\/(?:[a-zA-Z0-9_.]+\/)?(?:reel|reels|p|tv|stories|share\/p|share\/reel)\/([a-zA-Z0-9_-]+)/i.test(
       url
     );
+  }
+
+  supports(url: string): boolean {
+    return this.match(url);
   }
 
   extractShortcode(url: string): string | null {
@@ -22,7 +26,7 @@ export class InstagramExtractor implements MediaExtractor {
     return match ? match[1] : null;
   }
 
-  async extract(url: string): Promise<MediaMetadata> {
+  async extract(url: string): Promise<MediaResult> {
     if (!this.supports(url)) {
       throw new Error('URL Instagram tidak valid');
     }
@@ -33,6 +37,7 @@ export class InstagramExtractor implements MediaExtractor {
     }
 
     const isStory = url.includes('/stories/');
+    const isReel = url.includes('/reel/') || url.includes('/reels/') || url.includes('/tv/');
     const imgIndexMatch = url.match(/[?&]img_index=(\d+)/);
     const imgIndex = imgIndexMatch ? parseInt(imgIndexMatch[1], 10) : null;
 
@@ -41,11 +46,11 @@ export class InstagramExtractor implements MediaExtractor {
       : imgIndex
       ? `Postingan Instagram (${shortcode}) - Slide ${imgIndex}`
       : `Postingan Instagram (${shortcode})`;
-    let author = '@instagram';
+    let authorName = '@instagram';
     let thumbnail = `https://www.instagram.com/p/${shortcode}/media/?size=l`;
-    let isVideo = url.includes('/reel/') || url.includes('/reels/') || url.includes('/tv/');
+    let isVideo = isReel;
     let slideImages: string[] = [];
-    let formats: MediaFormat[] = [];
+    let mediaItems: MediaItem[] = [];
 
     try {
       const { stdout, stderr } = await execFilePromise(
@@ -73,7 +78,7 @@ export class InstagramExtractor implements MediaExtractor {
       if (parsed) {
         if (parsed.uploader || parsed.channel) {
           const uploaderName = parsed.channel || parsed.uploader || '';
-          author = uploaderName.startsWith('@') ? uploaderName : `@${uploaderName}`;
+          authorName = uploaderName.startsWith('@') ? uploaderName : `@${uploaderName}`;
         }
         if (parsed.description && parsed.description.trim()) {
           const cleanDesc = parsed.description.trim().replace(/[\r\n]+/g, ' ');
@@ -107,69 +112,96 @@ export class InstagramExtractor implements MediaExtractor {
       thumbnail = slideImages[0];
     }
 
+    const contentType: ContentType = isStory
+      ? 'story'
+      : isReel
+      ? 'reel'
+      : slideImages.length > 1
+      ? 'carousel'
+      : 'post';
+
     if (isVideo || isStory) {
-      formats = [
+      mediaItems = [
         {
           id: `ig-${shortcode}-hd`,
+          type: 'video',
+          mimeType: 'video/mp4',
           quality: isStory ? 'Story Video (MP4)' : 'Video HD (MP4)',
           ext: 'mp4',
           requiresMerge: false,
-          type: 'video',
         },
         {
           id: `ig-${shortcode}-img`,
+          type: 'image',
+          mimeType: 'image/jpeg',
           quality: 'Cover / Thumbnail (JPG)',
           ext: 'jpg',
           requiresMerge: false,
-          type: 'image',
         },
         ...generateAudioFormats(`ig-${shortcode}`),
       ];
     } else {
-      formats = [
+      mediaItems = [
         {
           id: `ig-${shortcode}-img`,
+          type: 'image',
+          mimeType: 'image/jpeg',
           quality: 'Foto High-Res (JPG)',
           ext: 'jpg',
           requiresMerge: false,
-          type: 'image',
           images: slideImages,
         },
       ];
 
       if (slideImages.length > 1) {
-        formats.push({
+        mediaItems.push({
           id: `ig-${shortcode}-zip`,
+          type: 'gallery',
+          mimeType: 'application/zip',
           quality: `Download Semua Slide (${slideImages.length} Slide - ZIP)`,
           ext: 'zip',
           requiresMerge: false,
-          type: 'gallery',
           images: slideImages,
         });
 
         slideImages.forEach((imgUrl, idx) => {
-          formats.push({
+          mediaItems.push({
             id: `ig-${shortcode}-slide-${idx + 1}`,
+            type: 'image',
+            mimeType: 'image/jpeg',
             quality: `Slide ${idx + 1} (JPG)`,
             ext: 'jpg',
-            requiresMerge: false,
-            type: 'image',
             url: imgUrl,
+            requiresMerge: false,
           });
         });
       }
     }
 
+    const authorDisplayName = authorName.startsWith('@') ? authorName : `@${authorName}`;
+    const authorUsername = authorName.startsWith('@') ? authorName.slice(1) : authorName.toLowerCase().replace(/\s+/g, '');
+
     return {
       id: shortcode,
       url,
       platform: 'instagram',
+      contentType,
+      source: {
+        url,
+        domain: 'instagram.com',
+      },
+      author: {
+        username: authorUsername,
+        displayName: authorDisplayName,
+      },
       title,
       thumbnail,
-      author,
       images: slideImages,
-      formats,
+      media: mediaItems,
+      formats: mediaItems,
     };
   }
 }
+
+export const InstagramExtractor = InstagramProvider;
 

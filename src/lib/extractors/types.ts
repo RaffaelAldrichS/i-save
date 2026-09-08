@@ -1,7 +1,10 @@
-import { MediaMetadata } from '@/types/media';
+import { MediaResult } from '@/types/media';
 
-export interface MediaExtractor {
+export interface Provider {
   name: string;
-  supports(url: string): boolean;
-  extract(url: string): Promise<MediaMetadata>;
+  match(url: string): boolean;
+  supports(url: string): boolean; // Alias of match for backward compatibility
+  extract(url: string): Promise<MediaResult>;
 }
+
+export type MediaExtractor = Provider;
