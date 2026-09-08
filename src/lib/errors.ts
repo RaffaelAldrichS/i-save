@@ -68,6 +68,20 @@ export function mapToAppError(err: unknown): AppError {
     };
   }
 
+  if (
+    lower.includes('private store') ||
+    lower.includes('cannot use public access') ||
+    lower.includes('blob_read_write_token') ||
+    lower.includes('store is configured with private access')
+  ) {
+    return {
+      code: 'INTERNAL_ERROR',
+      message: rawMessage || 'Terjadi kesalahan internal pada penyimpanan Vercel Blob.',
+      retryable: true,
+      providerError: rawMessage,
+    };
+  }
+
   if (lower.includes('privat') || lower.includes('private') || lower.includes('diubah ke privat')) {
     return {
       code: 'PRIVATE',
