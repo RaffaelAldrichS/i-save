@@ -94,13 +94,29 @@ export class TempStorage {
   cleanupExpired(ttlMs: number = 15 * 60 * 1000): void {
     try {
       const now = Date.now();
-      const files = fs.readdirSync(this.storageDir);
 
-      for (const file of files) {
-        const filePath = path.join(this.storageDir, file);
-        const stat = fs.statSync(filePath);
-        if (now - stat.mtimeMs > ttlMs) {
-          fs.unlinkSync(filePath);
+      // 1. Cleanup expired temp files
+      if (fs.existsSync(this.storageDir)) {
+        const files = fs.readdirSync(this.storageDir);
+        for (const file of files) {
+          const filePath = path.join(this.storageDir, file);
+          const stat = fs.statSync(filePath);
+          if (now - stat.mtimeMs > ttlMs) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      }
+
+      // 2. Cleanup expired job subdirectories in isave-jobs
+      const jobsDir = path.join(os.tmpdir(), 'isave-jobs');
+      if (fs.existsSync(jobsDir)) {
+        const jobFolders = fs.readdirSync(jobsDir);
+        for (const folder of jobFolders) {
+          const folderPath = path.join(jobsDir, folder);
+          const stat = fs.statSync(folderPath);
+          if (now - stat.mtimeMs > ttlMs) {
+            fs.rmSync(folderPath, { recursive: true, force: true });
+          }
         }
       }
     } catch {

@@ -11,8 +11,15 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 
+import { logger } from '@/lib/logger';
+import { metricsTracker } from '@/lib/metrics';
+import { extractorManager } from '@/lib/extractors';
+
 export async function POST(req: NextRequest) {
   let activeJobId: string | undefined;
+  const startTime = Date.now();
+  let providerName = 'unknown';
+
   try {
     tempStorage.cleanupExpired();
     progressTracker.cleanupOldJobs();
@@ -22,6 +29,14 @@ export async function POST(req: NextRequest) {
 
     if (!rateCheck.allowed) {
       const appErr = mapToAppError(`Terlalu banyak permintaan (Rate limit). Coba lagi dalam ${rateCheck.retryAfterSeconds} detik.`);
+      logger.log({
+        requestId: `req-dl-${Date.now()}`,
+        action: 'download',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordDownload(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -45,6 +60,14 @@ export async function POST(req: NextRequest) {
 
     if (!url || !formatId || typeof formatId !== 'string') {
       const appErr = mapToAppError('URL dan formatId wajib diisi');
+      logger.log({
+        requestId: activeJobId,
+        action: 'download',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordDownload(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -57,8 +80,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const matchedProvider = typeof extractorManager?.getProvider === 'function' ? extractorManager.getProvider(url) : undefined;
+    if (matchedProvider) {
+      providerName = matchedProvider.name.replace(' Extractor', '').toLowerCase();
+    }
+
     if (!(await isSafeExternalUrl(url))) {
       const appErr = mapToAppError('URL tidak valid atau mengarah ke alamat internal yang dilarang');
+      logger.log({
+        requestId: activeJobId,
+        provider: providerName,
+        action: 'download',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordDownload(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -75,6 +112,15 @@ export async function POST(req: NextRequest) {
     const safeFormatId = formatId.replace(/[^a-zA-Z0-9_\-+]/g, '');
     if (!safeFormatId) {
       const appErr = mapToAppError('Format ID tidak valid');
+      logger.log({
+        requestId: activeJobId,
+        provider: providerName,
+        action: 'download',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordDownload(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -98,6 +144,15 @@ export async function POST(req: NextRequest) {
       await workerPromise;
       const job = jobStore.getJob(activeJobId);
       if (job && job.stage === 'failed' && job.error) {
+        logger.log({
+          requestId: activeJobId,
+          provider: providerName,
+          action: 'download',
+          status: 'failed',
+          durationMs: Date.now() - startTime,
+          errorCode: job.error.code,
+        });
+        metricsTracker.recordDownload(providerName, false, Date.now() - startTime, job.error.code);
         return NextResponse.json(
           {
             success: false,
@@ -110,6 +165,14 @@ export async function POST(req: NextRequest) {
         );
       }
       if (job && job.stage === 'completed' && job.downloadUrl) {
+        logger.log({
+          requestId: activeJobId,
+          provider: providerName,
+          action: 'download',
+          status: 'success',
+          durationMs: Date.now() - startTime,
+        });
+        metricsTracker.recordDownload(providerName, true, Date.now() - startTime);
         return NextResponse.json({
           success: true,
           jobId: activeJobId,
@@ -121,6 +184,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Immediate Async Response (202 Accepted semantics)
+    logger.log({
+      requestId: activeJobId,
+      provider: providerName,
+      action: 'download',
+      status: 'success',
+      durationMs: Date.now() - startTime,
+    });
+    metricsTracker.recordDownload(providerName, true, Date.now() - startTime);
+
     return NextResponse.json(
       {
         success: true,
@@ -135,6 +207,15 @@ export async function POST(req: NextRequest) {
     if (activeJobId) {
       jobStore.setJobFailed(activeJobId, appErr);
     }
+    logger.log({
+      requestId: activeJobId || `req-dl-${Date.now()}`,
+      provider: providerName,
+      action: 'download',
+      status: 'failed',
+      durationMs: Date.now() - startTime,
+      errorCode: appErr.code,
+    });
+    metricsTracker.recordDownload(providerName, false, Date.now() - startTime, appErr.code);
     return NextResponse.json(
       {
         success: false,

@@ -66,8 +66,7 @@ function savePersistentData(): void {
 export class JobStore {
   createJob(jobId: string, url: string = '', formatId: string = ''): DownloadJob {
     const data = loadPersistentData();
-    const existing = data.jobs[jobId];
-    const job: DownloadJob = existing || {
+    const job: DownloadJob = {
       id: jobId,
       url,
       formatId,
@@ -77,9 +76,6 @@ export class JobStore {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-
-    if (url) job.url = url;
-    if (formatId) job.formatId = formatId;
 
     data.jobs[jobId] = job;
     savePersistentData();
@@ -179,8 +175,19 @@ export class JobStore {
     const data = loadPersistentData();
     const now = Date.now();
     for (const [id, job] of Object.entries(data.jobs)) {
-      if (now - job.updatedAt > ttlMs) {
+      // 1. Remove expired jobs (>=15 mins)
+      if (now - job.updatedAt >= ttlMs) {
         delete data.jobs[id];
+      } else if (['queued', 'extracting', 'processing'].includes(job.stage) && now - job.updatedAt > 10 * 60 * 1000) {
+        // 2. Mark stale running jobs (>10 mins inactive) as failed
+        job.stage = 'failed';
+        job.stageText = 'Proses unduhan kedaluwarsa atau terhenti';
+        job.error = {
+          code: 'PROCESSING_TIMEOUT',
+          message: 'Pekerjaan unduhan melebahi batas waktu keaktifan (stale job)',
+          retryable: true,
+        };
+        job.updatedAt = now;
       }
     }
     savePersistentData();

@@ -5,8 +5,14 @@ import { isSafeExternalUrl } from '@/lib/security';
 import { tempStorage } from '@/lib/tempStorage';
 import { progressTracker } from '@/lib/progressTracker';
 import { mapToAppError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
+import { metricsTracker } from '@/lib/metrics';
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  const reqId = `req-ext-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  let providerName = 'unknown';
+
   try {
     tempStorage.cleanupExpired();
     progressTracker.cleanupOldJobs();
@@ -16,6 +22,14 @@ export async function POST(req: NextRequest) {
 
     if (!rateCheck.allowed) {
       const appErr = mapToAppError(`Terlalu banyak permintaan (Rate limit). Coba lagi dalam ${rateCheck.retryAfterSeconds} detik.`);
+      logger.log({
+        requestId: reqId,
+        action: 'extract',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordExtraction(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -40,6 +54,14 @@ export async function POST(req: NextRequest) {
 
     if (!url || typeof url !== 'string' || url.trim().length === 0) {
       const appErr = mapToAppError('Parameter URL wajib diisi');
+      logger.log({
+        requestId: reqId,
+        action: 'extract',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordExtraction(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -53,9 +75,22 @@ export async function POST(req: NextRequest) {
     }
 
     const trimmedUrl = url.trim();
+    const matchedProvider = typeof extractorManager?.getProvider === 'function' ? extractorManager.getProvider(trimmedUrl) : undefined;
+    if (matchedProvider) {
+      providerName = matchedProvider.name.replace(' Extractor', '').toLowerCase();
+    }
 
     if (trimmedUrl.length > 2000) {
       const appErr = mapToAppError('Panjang URL melebihi batas (Maksimal 2000 karakter)');
+      logger.log({
+        requestId: reqId,
+        provider: providerName,
+        action: 'extract',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordExtraction(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -70,6 +105,15 @@ export async function POST(req: NextRequest) {
 
     if (!(await isSafeExternalUrl(trimmedUrl))) {
       const appErr = mapToAppError('URL tidak valid atau mengarah ke alamat internal yang dilarang (SSRF protection)');
+      logger.log({
+        requestId: reqId,
+        provider: providerName,
+        action: 'extract',
+        status: 'rejected',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordExtraction(providerName, false, Date.now() - startTime, appErr.code);
       return NextResponse.json(
         {
           success: false,
@@ -83,6 +127,18 @@ export async function POST(req: NextRequest) {
     }
 
     const metadata = await extractorManager.extract(trimmedUrl);
+    providerName = metadata.platform;
+    const duration = Date.now() - startTime;
+
+    logger.log({
+      requestId: reqId,
+      provider: providerName,
+      action: 'extract',
+      status: 'success',
+      durationMs: duration,
+    });
+    metricsTracker.recordExtraction(providerName, true, duration);
+
     return NextResponse.json(
       { success: true, data: metadata },
       {
@@ -94,6 +150,18 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: unknown) {
     const appErr = mapToAppError(err);
+    const duration = Date.now() - startTime;
+
+    logger.log({
+      requestId: reqId,
+      provider: providerName,
+      action: 'extract',
+      status: 'failed',
+      durationMs: duration,
+      errorCode: appErr.code,
+    });
+    metricsTracker.recordExtraction(providerName, false, duration, appErr.code);
+
     return NextResponse.json(
       {
         success: false,
