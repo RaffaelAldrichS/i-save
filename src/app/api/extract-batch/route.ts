@@ -3,10 +3,12 @@ import { extractorManager } from '@/lib/extractors';
 import { apiRateLimiter, getClientIp } from '@/lib/rateLimit';
 import { isSafeExternalUrl, parseMultiUrls } from '@/lib/security';
 import { tempStorage } from '@/lib/tempStorage';
+import { progressTracker } from '@/lib/progressTracker';
 
 export async function POST(req: NextRequest) {
   try {
     tempStorage.cleanupExpired();
+    progressTracker.cleanupOldJobs();
 
     const ip = getClientIp(req);
     const rateCheck = apiRateLimiter.check(ip);

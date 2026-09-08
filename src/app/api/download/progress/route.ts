@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { progressTracker } from '@/lib/progressTracker';
 
 export async function GET(req: NextRequest) {
+  progressTracker.cleanupOldJobs();
+
   const { searchParams } = new URL(req.url);
   const jobId = searchParams.get('jobId');
 
