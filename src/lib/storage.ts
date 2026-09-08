@@ -1,9 +1,10 @@
-import { put } from '@vercel/blob';
+import { put, get } from '@vercel/blob';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { AppCustomError } from './errors';
+import { getMimeType } from './security';
 
 export interface StoredMediaFile {
   id: string;
@@ -51,7 +52,7 @@ export class MediaStorageManager {
       const safeFilename = `${id}${ext}`;
 
       const blob = await put(`media/${safeFilename}`, buffer, {
-        access: 'public',
+        access: 'private',
         token,
       });
 
@@ -161,6 +162,58 @@ export class MediaStorageManager {
     } catch {
       return null;
     }
+  }
+
+  async getPrivateBlobStream(
+    fileIdOrPath: string,
+    filename?: string
+  ): Promise<{ stream: ReadableStream; contentType: string; size?: number } | null> {
+    const token = this.getBlobToken();
+    const isProd = this.isProduction();
+
+    if (isProd && !token) {
+      throw new AppCustomError(
+        'INTERNAL_ERROR',
+        'BLOB_READ_WRITE_TOKEN environment variable is missing in production storage',
+        false
+      );
+    }
+
+    if (!token) return null;
+
+    const ext = filename ? path.extname(filename) : '';
+    const candidates: string[] = [];
+
+    if (fileIdOrPath.startsWith('https://') || fileIdOrPath.includes('/')) {
+      candidates.push(fileIdOrPath);
+    } else {
+      if (ext) {
+        candidates.push(`media/${fileIdOrPath}${ext}`);
+      }
+      candidates.push(`media/${fileIdOrPath}`);
+      for (const e of ['.mp4', '.mp3', '.jpg', '.zip']) {
+        if (e !== ext) candidates.push(`media/${fileIdOrPath}${e}`);
+      }
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const res = await get(candidate, { access: 'private', token });
+        if (res && res.stream) {
+          return {
+            stream: res.stream as unknown as ReadableStream,
+            contentType: res.blob.contentType || getMimeType(ext || 'bin'),
+            size: res.blob.size || undefined,
+          };
+        }
+      } catch (err: unknown) {
+        if (isProd && err instanceof Error && err.message.includes('BLOB_READ_WRITE_TOKEN')) {
+          throw err;
+        }
+      }
+    }
+
+    return null;
   }
 
   cleanupExpired(ttlMs: number = 15 * 60 * 1000): void {
