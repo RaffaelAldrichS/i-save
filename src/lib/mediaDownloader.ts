@@ -302,7 +302,7 @@ export async function processMediaDownload(
       if (heightMatch) {
         const height = heightMatch[1];
         ytDlpArgs.push('-f', `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best`);
-      } else if (formatId && formatId !== 'best' && formatId !== 'mp4') {
+      } else if (formatId && formatId !== 'best' && formatId !== 'mp4' && !/^(ig-|fb-|tw-|pin-|reddit-|threads-|tt-)/.test(formatId)) {
         ytDlpArgs.push('-f', `${formatId}/bestvideo+bestaudio/best`);
       } else {
         ytDlpArgs.push('-f', 'bestvideo+bestaudio/best');
