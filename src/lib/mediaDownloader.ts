@@ -161,7 +161,7 @@ export async function processMediaDownload(
   }
 
   // 1.b Instagram Photo / Carousel / Slide Handler
-  if (/(?:instagram\.com|instagr\.am)/i.test(url) && (isImage || isZip || formatId.includes('slide-') || formatId.includes('zip'))) {
+  if (/(?:instagram\.com|instagr\.am)/i.test(url) && (isImage || isZip || formatId.includes('slide-') || formatId.includes('zip') || formatId.includes('img'))) {
     try {
       const matchCode = url.match(/(?:p|reel|reels|tv|stories|share\/p|share\/reel)\/([a-zA-Z0-9_-]+)/i);
       const shortcode = matchCode ? matchCode[1] : null;
