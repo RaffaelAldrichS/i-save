@@ -2,6 +2,11 @@ import { Provider } from './types';
 import { YouTubeProvider } from './youtube';
 import { TikTokProvider } from './tiktok';
 import { InstagramProvider } from './instagram';
+import { FacebookProvider } from './facebook';
+import { TwitterProvider } from './twitter';
+import { RedditProvider } from './reddit';
+import { ThreadsProvider } from './threads';
+import { PinterestProvider } from './pinterest';
 import { MediaResult } from '@/types/media';
 
 export class ProviderRegistry {
@@ -11,6 +16,11 @@ export class ProviderRegistry {
     this.register(new YouTubeProvider());
     this.register(new TikTokProvider());
     this.register(new InstagramProvider());
+    this.register(new FacebookProvider());
+    this.register(new TwitterProvider());
+    this.register(new RedditProvider());
+    this.register(new ThreadsProvider());
+    this.register(new PinterestProvider());
   }
 
   register(provider: Provider): void {

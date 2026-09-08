@@ -6,6 +6,7 @@ export type PlatformType =
   | 'twitter'
   | 'reddit'
   | 'threads'
+  | 'pinterest'
   | 'generic';
 
 export type ContentType =
