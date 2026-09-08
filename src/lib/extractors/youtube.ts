@@ -74,7 +74,7 @@ export class YouTubeProvider implements Provider {
       // Fallback to oEmbed if yt-dlp fails or is unavailable
     }
 
-    // 2. If real format discovery failed, fall back to oEmbed metadata lookup
+    // 2. If real format discovery failed, fall back to oEmbed metadata lookup for metadata only
     if (discoveredHeights.length === 0) {
       try {
         const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
@@ -87,15 +87,15 @@ export class YouTubeProvider implements Provider {
         const data = await res.json();
         title = data.title || title;
         authorName = data.author_name || authorName;
-        // Default standard heights fallback for oEmbed
-        discoveredHeights = [1080, 720, 480, 360];
       } catch (err: unknown) {
         if (err instanceof Error && err.message.includes('privat')) {
           throw err;
         }
-        // Fallback heights if fetch fails
-        discoveredHeights = [720, 480, 360];
       }
+    }
+
+    if (discoveredHeights.length === 0) {
+      throw new Error('Gagal mengekstraksi format video YouTube yang valid. Video mungkin privat atau tidak tersedia.');
     }
 
     // Map discovered heights to real MediaItem list (NO fake qualities!)

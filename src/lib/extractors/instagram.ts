@@ -48,7 +48,7 @@ export class InstagramProvider implements Provider {
       : `Postingan Instagram (${shortcode})`;
     let authorName = '@instagram';
     let thumbnail = `https://www.instagram.com/p/${shortcode}/media/?size=l`;
-    let isVideo = isReel;
+    let isVideo = isReel || isStory;
     let slideImages: string[] = [];
     let mediaItems: MediaItem[] = [];
 
@@ -104,6 +104,10 @@ export class InstagramProvider implements Provider {
       }
     } catch {
       // Fallback if yt-dlp unavailable
+    }
+
+    if (slideImages.length === 0 && !isVideo) {
+      throw new Error('Gagal mengekstraksi media Instagram yang valid atau postingan disetel privat');
     }
 
     if (slideImages.length === 0) {

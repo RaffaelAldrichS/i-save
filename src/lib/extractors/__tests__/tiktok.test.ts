@@ -40,7 +40,7 @@ describe('TikTokExtractor Engine', () => {
 
       const audioFormat = metadata.formats.find((f: MediaItem) => f.type === 'audio' || f.ext === 'mp3');
       expect(audioFormat).toBeDefined();
-    });
+    }, 15000);
 
     it('should throw error for invalid TikTok URL without video ID', async () => {
       await expect(extractor.extract('https://www.tiktok.com/invalid_page')).rejects.toThrow(

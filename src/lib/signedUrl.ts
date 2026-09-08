@@ -36,9 +36,9 @@ export function verifySignedDownloadUrl(
     return { valid: false, error: 'fileId wajib diisi' };
   }
 
-  // If no signature/expires parameters are present, allow basic fileId access for backwards compatibility
+  // Mandatory signature & expiration check (NO unsigned bypass!)
   if (!expiresStr || !signature) {
-    return { valid: true };
+    return { valid: false, error: 'Tanda tangan unduhan dan masa berlaku wajib ada (Mandatory signed download)' };
   }
 
   const expires = parseInt(expiresStr, 10);
@@ -50,7 +50,10 @@ export function verifySignedDownloadUrl(
   const payload = `${fileId}:${expires}:${cleanFilename}`;
   const expectedSignature = crypto.createHmac('sha256', SIGNING_SECRET).update(payload).digest('hex');
 
-  if (signature !== expectedSignature) {
+  const sigBuffer = Buffer.from(signature, 'hex');
+  const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+  if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
     return { valid: false, error: 'Tanda tangan unduhan tidak valid' };
   }
 

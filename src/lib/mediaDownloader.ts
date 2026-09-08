@@ -302,7 +302,7 @@ export async function processMediaDownload(
       } else if (formatId && formatId !== 'best' && formatId !== 'mp4') {
         ytDlpArgs.push('-f', `${formatId}/bestvideo+bestaudio/best`);
       } else {
-        ytDlpArgs.push('-f', 'bestvideo[height<=720]+bestaudio/best');
+        ytDlpArgs.push('-f', 'bestvideo+bestaudio/best');
       }
 
       ytDlpArgs.push('--merge-output-format', 'mp4', '--remux-video', 'mp4');

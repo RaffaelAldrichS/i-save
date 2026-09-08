@@ -92,21 +92,29 @@ export class FacebookProvider implements Provider {
 
     if (isVideo) {
       if (discoveredHeights.length === 0) {
-        discoveredHeights = [720, 480];
-      }
-
-      for (const h of discoveredHeights) {
-        const qualityLabel = h >= 720 ? `${h}p HD` : `${h}p SD`;
         mediaItems.push({
-          id: `fb-${contentId}-${h}p`,
+          id: `fb-${contentId}-hd`,
           type: 'video',
           mimeType: 'video/mp4',
-          quality: qualityLabel,
+          quality: 'Video HD (MP4)',
           ext: 'mp4',
-          height: h,
-          formatId: `${h}p`,
+          formatId: 'hd',
           requiresMerge: false,
         });
+      } else {
+        for (const h of discoveredHeights) {
+          const qualityLabel = h >= 720 ? `${h}p HD` : `${h}p SD`;
+          mediaItems.push({
+            id: `fb-${contentId}-${h}p`,
+            type: 'video',
+            mimeType: 'video/mp4',
+            quality: qualityLabel,
+            ext: 'mp4',
+            height: h,
+            formatId: `${h}p`,
+            requiresMerge: false,
+          });
+        }
       }
 
       mediaItems.push(...generateAudioFormats(`fb-${contentId}`));

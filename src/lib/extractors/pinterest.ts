@@ -105,7 +105,7 @@ export class PinterestProvider implements Provider {
 
     if (isVideo) {
       if (discoveredHeights.length === 0) {
-        discoveredHeights = [720, 480];
+        throw new Error('Gagal mengekstraksi format video Pinterest yang valid');
       }
 
       for (const h of discoveredHeights) {
