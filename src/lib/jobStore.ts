@@ -1,4 +1,5 @@
 import { AppError } from './errors';
+import { redisJobStore, redis } from './redisStore';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -57,7 +58,9 @@ function savePersistentData(): void {
   const data = globalThis.__isave_redis_job_db__;
   if (!data) return;
   try {
-    fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data), 'utf-8');
+    const tmpPath = `${DB_FILE_PATH}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(data), 'utf-8');
+    fs.renameSync(tmpPath, DB_FILE_PATH);
   } catch {
     // Ignore write errors
   }
@@ -79,6 +82,9 @@ export class JobStore {
 
     data.jobs[jobId] = job;
     savePersistentData();
+    if (redis) {
+      redisJobStore.createJob(jobId, url, formatId).catch(() => {});
+    }
     return job;
   }
 
@@ -101,6 +107,10 @@ export class JobStore {
     job.updatedAt = Date.now();
     data.jobs[jobId] = job;
     savePersistentData();
+
+    if (redis) {
+      redisJobStore.updateJobProgress(jobId, percent, stage, stageText).catch(() => {});
+    }
     return job;
   }
 
@@ -126,6 +136,10 @@ export class JobStore {
     job.updatedAt = Date.now();
     data.jobs[jobId] = job;
     savePersistentData();
+
+    if (redis) {
+      redisJobStore.setJobCompleted(jobId, downloadUrl, filename, fileId).catch(() => {});
+    }
     return job;
   }
 
@@ -148,6 +162,10 @@ export class JobStore {
     job.updatedAt = Date.now();
     data.jobs[jobId] = job;
     savePersistentData();
+
+    if (redis) {
+      redisJobStore.setJobFailed(jobId, error).catch(() => {});
+    }
     return job;
   }
 
