@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { YouTubeExtractor } from '../youtube';
+import { YouTubeProvider } from '../youtube';
+import { MediaItem } from '@/types/media';
 
 describe('YouTubeExtractor Engine', () => {
-  let extractor: YouTubeExtractor;
+  let extractor: YouTubeProvider;
 
   beforeEach(() => {
-    extractor = new YouTubeExtractor();
+    extractor = new YouTubeProvider();
   });
 
   describe('supports()', () => {
@@ -32,12 +33,12 @@ describe('YouTubeExtractor Engine', () => {
       expect(metadata.formats.length).toBeGreaterThan(0);
 
       // Verify format structure
-      const format1080p = metadata.formats.find((f) => f.quality.includes('1080p') || f.id.includes('1080p'));
+      const format1080p = metadata.formats.find((f: MediaItem) => f.quality.includes('1080p') || f.id.includes('1080p'));
       expect(format1080p).toBeDefined();
 
-      const mp3Format = metadata.formats.find((f) => f.type === 'audio' || f.ext === 'mp3');
+      const mp3Format = metadata.formats.find((f: MediaItem) => f.type === 'audio' || f.ext === 'mp3');
       expect(mp3Format).toBeDefined();
-    });
+    }, 15000);
 
     it('should throw error for invalid YouTube URL', async () => {
       await expect(extractor.extract('https://youtube.com/watch?v=invalid_id_format')).rejects.toThrow();

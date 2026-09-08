@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { InstagramExtractor } from '../instagram';
+import { InstagramProvider } from '../instagram';
+import { MediaItem } from '@/types/media';
 
 describe('InstagramExtractor Engine', () => {
-  let extractor: InstagramExtractor;
+  let extractor: InstagramProvider;
 
   beforeEach(() => {
-    extractor = new InstagramExtractor();
+    extractor = new InstagramProvider();
   });
 
   describe('supports()', () => {
@@ -59,7 +60,7 @@ describe('InstagramExtractor Engine', () => {
       expect(metadata.thumbnail).toBeDefined();
       expect(metadata.formats.length).toBeGreaterThan(0);
 
-      const hdFormat = metadata.formats.find((f) => f.quality.includes('HD') || f.ext === 'mp4');
+      const hdFormat = metadata.formats.find((f: MediaItem) => f.quality.includes('HD') || f.ext === 'mp4');
       expect(hdFormat).toBeDefined();
     }, 30000);
 
@@ -67,10 +68,10 @@ describe('InstagramExtractor Engine', () => {
       const metadata = await extractor.extract('https://www.instagram.com/p/Dc-ecCPlDOL/?img_index=1');
 
       expect(metadata.id).toBe('Dc-ecCPlDOL');
-      expect(metadata.formats.some((f) => f.type === 'image')).toBe(true);
+      expect(metadata.formats.some((f: MediaItem) => f.type === 'image')).toBe(true);
       // Photo post should not contain MP4 or MP3 formats
-      expect(metadata.formats.some((f) => f.ext === 'mp4')).toBe(false);
-      expect(metadata.formats.some((f) => f.ext === 'mp3')).toBe(false);
+      expect(metadata.formats.some((f: MediaItem) => f.ext === 'mp4')).toBe(false);
+      expect(metadata.formats.some((f: MediaItem) => f.ext === 'mp3')).toBe(false);
     }, 30000);
 
     it('should extract metadata for story URL', async () => {
@@ -78,7 +79,7 @@ describe('InstagramExtractor Engine', () => {
 
       expect(metadata.id).toBe('irwandiferry');
       expect(metadata.title).toContain('Story');
-      expect(metadata.formats.some((f) => f.quality.includes('Story'))).toBe(true);
+      expect(metadata.formats.some((f: MediaItem) => f.quality.includes('Story'))).toBe(true);
     }, 30000);
 
     it('should not have example.com URLs in formats', async () => {

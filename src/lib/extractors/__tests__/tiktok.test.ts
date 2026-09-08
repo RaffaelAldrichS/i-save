@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TikTokExtractor } from '../tiktok';
+import { TikTokProvider } from '../tiktok';
+import { MediaItem } from '@/types/media';
 
 describe('TikTokExtractor Engine', () => {
-  let extractor: TikTokExtractor;
+  let extractor: TikTokProvider;
 
   beforeEach(() => {
-    extractor = new TikTokExtractor();
+    extractor = new TikTokProvider();
   });
 
   describe('supports()', () => {
@@ -32,12 +33,12 @@ describe('TikTokExtractor Engine', () => {
       expect(metadata.formats.length).toBeGreaterThan(0);
 
       const noWmFormat = metadata.formats.find(
-        (f) => f.quality.includes('No Watermark') || f.id.includes('no-wm')
+        (f: MediaItem) => f.quality.includes('No Watermark') || f.id.includes('no-wm')
       );
       expect(noWmFormat).toBeDefined();
       expect(noWmFormat?.type).toBe('video');
 
-      const audioFormat = metadata.formats.find((f) => f.type === 'audio' || f.ext === 'mp3');
+      const audioFormat = metadata.formats.find((f: MediaItem) => f.type === 'audio' || f.ext === 'mp3');
       expect(audioFormat).toBeDefined();
     });
 
