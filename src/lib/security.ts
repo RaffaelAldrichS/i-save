@@ -1,18 +1,70 @@
 import { URL } from 'url';
+import dns from 'dns';
+import net from 'net';
+
+/**
+ * Helper to check if an IP string belongs to private/reserved CIDRs.
+ */
+function isPrivateOrReservedIp(ip: string): boolean {
+  // Normalize IPv6-mapped IPv4 e.g. ::ffff:127.0.0.1 -> 127.0.0.1
+  let cleanIp = ip.toLowerCase();
+  if (cleanIp.startsWith('::ffff:')) {
+    cleanIp = cleanIp.slice(7);
+  }
+
+  if (net.isIPv4(cleanIp)) {
+    const parts = cleanIp.split('.').map((p) => parseInt(p, 10));
+    const [p0, p1] = parts;
+
+    // 0.0.0.0/8 (Broadcast/Current network)
+    if (p0 === 0) return true;
+    // 127.0.0.0/8 (Loopback)
+    if (p0 === 127) return true;
+    // 10.0.0.0/8 (Private)
+    if (p0 === 10) return true;
+    // 172.16.0.0/12 (Private)
+    if (p0 === 172 && p1 >= 16 && p1 <= 31) return true;
+    // 192.168.0.0/16 (Private)
+    if (p0 === 192 && p1 === 168) return true;
+    // 169.254.0.0/16 (Link-local / Cloud metadata)
+    if (p0 === 169 && p1 === 254) return true;
+    // 100.64.0.0/10 (Shared transition / CGNAT)
+    if (p0 === 100 && p1 >= 64 && p1 <= 127) return true;
+    // 198.18.0.0/15 (Benchmarking)
+    if (p0 === 198 && (p1 === 18 || p1 === 19)) return true;
+    // 224.0.0.0/4 (Multicast) & 240.0.0.0/4 (Reserved)
+    if (p0 >= 224) return true;
+
+    return false;
+  }
+
+  if (net.isIPv6(cleanIp)) {
+    if (cleanIp === '::' || cleanIp === '::1' || cleanIp === '0:0:0:0:0:0:0:1') return true;
+    if (cleanIp.startsWith('fe80:') || cleanIp.startsWith('fe9') || cleanIp.startsWith('fea') || cleanIp.startsWith('feb')) return true; // Link-local
+    if (cleanIp.startsWith('fc') || cleanIp.startsWith('fd')) return true; // Unique local
+    if (cleanIp.startsWith('ff')) return true; // Multicast
+    return false;
+  }
+
+  return true; // If net.isIP fails, treat as unsafe
+}
 
 /**
  * Validates if a URL is safe from SSRF attacks (blocks private, loopback, and internal IPs).
  */
 export async function isSafeExternalUrl(urlStr: string): Promise<boolean> {
   try {
-    const rawLower = urlStr.toLowerCase();
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    const rawLower = urlStr.toLowerCase().trim();
+
+    // Block non-HTTP protocols and raw string patterns for local/mapped IPs
     if (
-      rawLower.includes('::ffff:') ||
-      rawLower.includes('127.0.0.1') ||
       rawLower.includes('localhost') ||
-      rawLower.includes('169.254.')
+      rawLower.includes('169.254.') ||
+      rawLower.includes('::ffff:') ||
+      rawLower.includes('0.0.0.0') ||
+      rawLower.includes('::1')
     ) {
-      // Direct string check for common internal patterns/mapped IPv6
       if (
         rawLower.includes('127.0.0.1') ||
         rawLower.includes('localhost') ||
@@ -58,46 +110,25 @@ export async function isSafeExternalUrl(urlStr: string): Promise<boolean> {
       return false;
     }
 
+    // Block decimal / octal / hex integer IP notations (e.g., http://2130706433 or http://0177.0.0.1)
+    if (/^(0x[0-9a-f]+|[0-9]+)$/i.test(hostname)) {
+      return false; // Direct integer IP format denied
+    }
+
+    // If hostname is directly an IP, validate it
+    if (net.isIP(hostname)) {
+      if (isPrivateOrReservedIp(hostname)) return false;
+    }
+
     // Resolve DNS to get actual IP
-    const lookup = await import('dns').then(dns => dns.promises.lookup(hostname)).catch(() => null);
+    const lookup = await dns.promises.lookup(hostname).catch(() => null);
     if (!lookup || !lookup.address) {
       return false; // Cannot resolve, deny
     }
-    
-    const ip = lookup.address.toLowerCase();
 
-    // Block localhost & loopback names / IPs
-    if (
-      hostname === 'localhost' ||
-      hostname.endsWith('.localhost') ||
-      hostname.endsWith('.local') ||
-      ip === '0.0.0.0' ||
-      ip === '::' ||
-      ip === '::1' ||
-      ip.startsWith('127.') ||
-      ip.startsWith('10.') ||
-      ip.startsWith('192.168.') ||
-      ip.startsWith('169.254.')
-    ) {
-      return false;
-    }
+    const resolvedIp = lookup.address.toLowerCase();
 
-    // 172.16.0.0/12 (Private)
-    if (ip.startsWith('172.')) {
-      const p2 = parseInt(ip.split('.')[1], 10);
-      if (p2 >= 16 && p2 <= 31) return false;
-    }
-
-    // IPv6 local blocks
-    if (
-      ip.startsWith('fe80:') ||
-      ip.startsWith('fc') ||
-      ip.startsWith('fd') ||
-      ip.includes('::ffff:127.') ||
-      ip.includes('::ffff:10.') ||
-      ip.includes('::ffff:192.168.') ||
-      ip.includes('::ffff:169.254.')
-    ) {
+    if (isPrivateOrReservedIp(resolvedIp)) {
       return false;
     }
 
@@ -105,6 +136,17 @@ export async function isSafeExternalUrl(urlStr: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Validates a URL for fetch operations, throwing an error if unsafe.
+ */
+export async function validateUrlForFetch(urlStr: string): Promise<string> {
+  const isSafe = await isSafeExternalUrl(urlStr);
+  if (!isSafe) {
+    throw new Error('URL target tidak aman atau mengarah ke jaringan internal');
+  }
+  return urlStr;
 }
 
 /**

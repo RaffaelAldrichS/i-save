@@ -36,7 +36,11 @@ export async function processMediaDownload(
   const ext = isZip ? 'zip' : isAudio ? 'mp3' : isImage ? 'jpg' : 'mp4';
   const tempDir = os.tmpdir();
   const filePrefix = `isave_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const tempFilePath = path.join(tempDir, `${filePrefix}.${ext}`);
+  const jobDir = path.join(tempDir, 'isave-jobs', filePrefix);
+  if (!fs.existsSync(jobDir)) {
+    fs.mkdirSync(jobDir, { recursive: true });
+  }
+  const tempFilePath = path.join(jobDir, `${filePrefix}.${ext}`);
 
   // 1. TikTok Handler via TikWM API (Supports Video, Audio, and Photo Carousel Slides)
   if (/tiktok\.com/i.test(url)) {
@@ -55,6 +59,7 @@ export async function processMediaDownload(
               for (let i = 0; i < images.length; i++) {
                 let imgUrl = images[i];
                 if (!imgUrl.startsWith('http')) imgUrl = `https://www.tikwm.com${imgUrl}`;
+                if (!(await isSafeExternalUrl(imgUrl))) continue;
                 const imgRes = await fetch(imgUrl);
                 if (imgRes.ok) {
                   const arrBuf = await imgRes.arrayBuffer();
@@ -85,19 +90,21 @@ export async function processMediaDownload(
               const slideIdx = matchIndex ? parseInt(matchIndex[1], 10) - 1 : 0;
               const targetUrl = images[slideIdx] || images[0];
               const fullImgUrl = targetUrl.startsWith('http') ? targetUrl : `https://www.tikwm.com${targetUrl}`;
-              const imgRes = await fetch(fullImgUrl);
-              if (imgRes.ok) {
-                const arrBuf = await imgRes.arrayBuffer();
-                const buffer = Buffer.from(arrBuf);
-                await fs.promises.writeFile(tempFilePath, buffer);
-                return {
-                  filePath: tempFilePath,
-                  get buffer() {
-                    return fs.readFileSync(tempFilePath);
-                  },
-                  filename: `tiktok_slide_${slideIdx + 1}.jpg`,
-                  ext: 'jpg',
-                };
+              if (await isSafeExternalUrl(fullImgUrl)) {
+                const imgRes = await fetch(fullImgUrl);
+                if (imgRes.ok) {
+                  const arrBuf = await imgRes.arrayBuffer();
+                  const buffer = Buffer.from(arrBuf);
+                  await fs.promises.writeFile(tempFilePath, buffer);
+                  return {
+                    filePath: tempFilePath,
+                    get buffer() {
+                      return fs.readFileSync(tempFilePath);
+                    },
+                    filename: `tiktok_slide_${slideIdx + 1}.jpg`,
+                    ext: 'jpg',
+                  };
+                }
               }
             }
           }
@@ -112,34 +119,36 @@ export async function processMediaDownload(
               mediaUrl = `https://www.tikwm.com${mediaUrl}`;
             }
 
-            const mediaRes = await fetch(mediaUrl, {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              },
-            });
+            if (await isSafeExternalUrl(mediaUrl)) {
+              const mediaRes = await fetch(mediaUrl, {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                },
+              });
 
-            if (mediaRes.ok && mediaRes.body) {
-              const fileStream = fs.createWriteStream(tempFilePath);
-              try {
-                await pipeline(Readable.fromWeb(mediaRes.body as unknown as import('stream/web').ReadableStream), fileStream);
-              } catch {
-                fileStream.destroy();
-              }
+              if (mediaRes.ok && mediaRes.body) {
+                const fileStream = fs.createWriteStream(tempFilePath);
+                try {
+                  await pipeline(Readable.fromWeb(mediaRes.body as unknown as import('stream/web').ReadableStream), fileStream);
+                } catch {
+                  fileStream.destroy();
+                }
 
-              const stat = fs.existsSync(tempFilePath) ? fs.statSync(tempFilePath) : null;
-              if (stat && stat.size > 1000) {
-                const titleSlug = (json.data.title || 'tiktok-media')
-                  .slice(0, 30)
-                  .replace(/[^a-zA-Z0-9]/g, '_');
-                return {
-                  filePath: tempFilePath,
-                  get buffer() {
-                    return fs.readFileSync(tempFilePath);
-                  },
-                  filename: `${titleSlug}.${ext}`,
-                  ext,
-                };
+                const stat = fs.existsSync(tempFilePath) ? fs.statSync(tempFilePath) : null;
+                if (stat && stat.size > 1000) {
+                  const titleSlug = (json.data.title || 'tiktok-media')
+                    .slice(0, 30)
+                    .replace(/[^a-zA-Z0-9]/g, '_');
+                  return {
+                    filePath: tempFilePath,
+                    get buffer() {
+                      return fs.readFileSync(tempFilePath);
+                    },
+                    filename: `${titleSlug}.${ext}`,
+                    ext,
+                  };
+                }
               }
             }
           }
@@ -260,8 +269,6 @@ export async function processMediaDownload(
       '--no-part',
       '--js-runtimes',
       'node',
-      '--remote-components',
-      'ejs:github',
       '--max-filesize',
       '200m',
     ];
@@ -302,7 +309,19 @@ export async function processMediaDownload(
     }
 
     await new Promise<void>((resolve, reject) => {
-      const child = spawn('yt-dlp', ytDlpArgs);
+      let isSettled = false;
+      const child = spawn('yt-dlp', ytDlpArgs, { cwd: jobDir });
+
+      const timer = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          child.kill('SIGTERM');
+          setTimeout(() => {
+            try { child.kill('SIGKILL'); } catch {}
+          }, 2000);
+          reject(new Error('Proses unduhan melebihi batas waktu (timeout 120s)'));
+        }
+      }, 120000); // 120 second timeout
 
       child.stdout?.on('data', (data: Buffer) => {
         const text = data.toString();
@@ -318,26 +337,34 @@ export async function processMediaDownload(
       });
 
       child.on('close', (code) => {
+        clearTimeout(timer);
+        if (isSettled) return;
+        isSettled = true;
         if (code === 0) resolve();
         else reject(new Error(`Proses yt-dlp selesai dengan kode ${code}`));
       });
 
-      child.on('error', (err) => reject(err));
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        if (isSettled) return;
+        isSettled = true;
+        reject(err);
+      });
     });
 
     if (jobId) {
       progressTracker.updateProgress(jobId, 95, 'merging', 'Menyiapkan file unduhan...');
     }
 
-    // Look for exact file or any file created with prefix
+    // Look for exact file or any file created with prefix in jobDir
     let actualFilePath = tempFilePath;
     let originalTitle = `media_${formatId}`;
     
     if (!fs.existsSync(/*turbopackIgnore: true*/ actualFilePath)) {
-      const files = fs.readdirSync(tempDir);
+      const files = fs.readdirSync(jobDir);
       const matched = files.find((f) => f.startsWith(filePrefix));
       if (matched) {
-        actualFilePath = path.join(tempDir, matched);
+        actualFilePath = path.join(jobDir, matched);
         // Extract title from filename (remove prefix)
         const namePart = matched.substring(filePrefix.length + 1); // +1 for the dot/underscore
         if (namePart) {
@@ -356,7 +383,7 @@ export async function processMediaDownload(
         // 1. Handle FFmpeg Video/Audio Trimming if formatId contains trim option
         const trimInfo = parseTrimOption(formatId);
         if (trimInfo) {
-          const trimmedPath = path.join(tempDir, `${filePrefix}_trimmed.${actualExt}`);
+          const trimmedPath = path.join(jobDir, `${filePrefix}_trimmed.${actualExt}`);
           try {
             const bin = ffmpegPath || 'ffmpeg';
             await execFilePromise(bin, [
@@ -389,7 +416,7 @@ export async function processMediaDownload(
           const bitrateMatch = formatId.match(/(320|192|128)kbps/);
           if (bitrateMatch) {
             const targetBitrate = bitrateMatch[1];
-            const transcodedPath = path.join(tempDir, `${filePrefix}_${targetBitrate}k.mp3`);
+            const transcodedPath = path.join(jobDir, `${filePrefix}_${targetBitrate}k.mp3`);
             try {
               const bin = ffmpegPath || 'ffmpeg';
               await execFilePromise(bin, [
@@ -421,12 +448,11 @@ export async function processMediaDownload(
       }
     }
   } catch (err: unknown) {
-    // Cleanup any lingering temp file
+    // Cleanup lingering temp job directory
     try {
-      const files = fs.readdirSync(tempDir);
-      files
-        .filter((f) => f.startsWith(filePrefix))
-        .forEach((f) => fs.unlinkSync(path.join(tempDir, f)));
+      if (fs.existsSync(jobDir)) {
+        fs.rmSync(jobDir, { recursive: true, force: true });
+      }
     } catch {
       // Ignore cleanup error
     }

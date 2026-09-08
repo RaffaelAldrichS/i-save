@@ -1,3 +1,5 @@
+import net from 'net';
+
 export interface RateLimitResult {
   allowed: boolean;
   limit: number;
@@ -83,6 +85,7 @@ const PRIVATE_IP_RANGES = [
 ];
 
 function isPrivateOrReserved(ip: string): boolean {
+  if (!net.isIP(ip)) return true; // Invalid IP format is treated as invalid/private
   return PRIVATE_IP_RANGES.some((r) => r.test(ip));
 }
 
@@ -90,20 +93,20 @@ export function getClientIp(req: { headers: { get(name: string): string | null }
   const cfIp = req.headers.get('cf-connecting-ip');
   if (cfIp) {
     const trimmed = cfIp.trim();
-    if (trimmed && !isPrivateOrReserved(trimmed)) return trimmed;
+    if (trimmed && net.isIP(trimmed) && !isPrivateOrReserved(trimmed)) return trimmed;
   }
 
   const realIp = req.headers.get('x-real-ip');
   if (realIp) {
     const trimmed = realIp.trim();
-    if (trimmed && !isPrivateOrReserved(trimmed)) return trimmed;
+    if (trimmed && net.isIP(trimmed) && !isPrivateOrReserved(trimmed)) return trimmed;
   }
 
   const forwarded = req.headers.get('x-forwarded-for');
   if (forwarded) {
     const ips = forwarded.split(',').map((s) => s.trim());
     for (const ip of ips) {
-      if (ip && !isPrivateOrReserved(ip)) return ip;
+      if (ip && net.isIP(ip) && !isPrivateOrReserved(ip)) return ip;
     }
   }
 
