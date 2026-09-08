@@ -1,23 +1,39 @@
 import { jobStore, DownloadJob } from './jobStore';
+import { redisJobStore } from './redisStore';
 import { processMediaDownload } from './mediaDownloader';
 import { tempStorage } from './tempStorage';
 import { createSignedDownloadUrl } from './signedUrl';
 import { mapToAppError } from './errors';
 import fs from 'fs';
 
-const MAX_CONCURRENT_JOBS = 3;
-let activeWorkerCount = 0;
+export async function processWorkerJob(jobId: string): Promise<boolean> {
+  const job = await jobStore.getJobAsync(jobId);
+  if (!job) return false;
 
-export async function processWorkerJob(jobId: string): Promise<void> {
-  const job = jobStore.getJob(jobId);
-  if (!job) return;
+  // Idempotency: skip if job already completed or failed
+  if (['completed', 'failed'].includes(job.stage)) {
+    return true;
+  }
+
+  // 1. Acquire Atomic Redis Lock for Worker Execution
+  const lockAcquired = await redisJobStore.acquireJobLock(jobId);
+  if (!lockAcquired) {
+    return false; // Concurrent execution locked by another worker
+  }
+
+  // 2. Acquire Distributed Concurrency Slot
+  const slotAcquired = await redisJobStore.acquireConcurrencySlot();
+  if (!slotAcquired) {
+    await redisJobStore.releaseJobLock(jobId);
+    return false; // Concurrency limit (3 active workers) reached
+  }
 
   try {
-    jobStore.updateJobProgress(jobId, 10, 'extracting', 'Mengekstraksi informasi media...');
+    await jobStore.updateJobProgressAsync(jobId, 10, 'extracting', 'Mengekstraksi informasi media...');
 
     const downloadRes = await processMediaDownload(job.url, job.formatId, jobId);
 
-    jobStore.updateJobProgress(jobId, 85, 'processing', 'Menyiapkan file unduhan...');
+    await jobStore.updateJobProgressAsync(jobId, 85, 'processing', 'Menyiapkan file unduhan...');
 
     const fileInfo = downloadRes.filePath && fs.existsSync(downloadRes.filePath)
       ? await tempStorage.registerFileFromPath(downloadRes.filePath, downloadRes.filename)
@@ -25,27 +41,16 @@ export async function processWorkerJob(jobId: string): Promise<void> {
 
     const signedDownloadUrl = createSignedDownloadUrl(fileInfo.id, fileInfo.filename, 900); // 15 mins expiry
 
-    jobStore.setJobCompleted(jobId, signedDownloadUrl, fileInfo.filename, fileInfo.id);
+    await jobStore.setJobCompletedAsync(jobId, signedDownloadUrl, fileInfo.filename, fileInfo.id);
+    return true;
   } catch (err: unknown) {
     const appErr = mapToAppError(err);
-    jobStore.setJobFailed(jobId, appErr);
+    await jobStore.setJobFailedAsync(jobId, appErr);
+    return false;
+  } finally {
+    await redisJobStore.releaseConcurrencySlot();
+    await redisJobStore.releaseJobLock(jobId);
   }
-}
-
-export function triggerWorkerQueue(): void {
-  if (activeWorkerCount >= MAX_CONCURRENT_JOBS) return;
-
-  const nextJobId = jobStore.popQueue();
-  if (!nextJobId) return;
-
-  activeWorkerCount++;
-
-  Promise.resolve()
-    .then(() => processWorkerJob(nextJobId))
-    .finally(() => {
-      activeWorkerCount = Math.max(0, activeWorkerCount - 1);
-      triggerWorkerQueue();
-    });
 }
 
 export async function enqueueDownloadJob(
@@ -53,13 +58,5 @@ export async function enqueueDownloadJob(
   url: string,
   formatId: string
 ): Promise<DownloadJob> {
-  const job = jobStore.createJob(jobId, url, formatId);
-  jobStore.pushQueue(jobId);
-
-  // Trigger worker asynchronously off the HTTP event loop
-  setImmediate(() => {
-    triggerWorkerQueue();
-  });
-
-  return job;
+  return await jobStore.createJobAsync(jobId, url, formatId);
 }

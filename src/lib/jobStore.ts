@@ -1,8 +1,5 @@
 import { AppError } from './errors';
 import { redisJobStore, redis } from './redisStore';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 
 export type JobStage = 'queued' | 'extracting' | 'processing' | 'ready' | 'completed' | 'failed';
 
@@ -21,54 +18,11 @@ export interface DownloadJob {
   updatedAt: number;
 }
 
-// Global persistent storage backing interface (Redis / File-backed KV store)
-interface PersistentJobData {
-  jobs: Record<string, DownloadJob>;
-  queue: string[];
-}
-
-const DB_FILE_PATH = path.join(os.tmpdir(), 'isave-persistent-jobs-db.json');
-
-declare global {
-  var __isave_redis_job_db__: PersistentJobData | undefined;
-}
-
-function loadPersistentData(): PersistentJobData {
-  if (globalThis.__isave_redis_job_db__) {
-    return globalThis.__isave_redis_job_db__;
-  }
-
-  try {
-    if (fs.existsSync(DB_FILE_PATH)) {
-      const raw = fs.readFileSync(DB_FILE_PATH, 'utf-8');
-      const parsed = JSON.parse(raw);
-      globalThis.__isave_redis_job_db__ = parsed;
-      return parsed;
-    }
-  } catch {
-    // Ignore read errors
-  }
-
-  const initial: PersistentJobData = { jobs: {}, queue: [] };
-  globalThis.__isave_redis_job_db__ = initial;
-  return initial;
-}
-
-function savePersistentData(): void {
-  const data = globalThis.__isave_redis_job_db__;
-  if (!data) return;
-  try {
-    const tmpPath = `${DB_FILE_PATH}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
-    fs.writeFileSync(tmpPath, JSON.stringify(data), 'utf-8');
-    fs.renameSync(tmpPath, DB_FILE_PATH);
-  } catch {
-    // Ignore write errors
-  }
-}
+// In-memory fallback map for offline unit testing when Redis environment variables are absent
+const testMemoryStore = new Map<string, DownloadJob>();
 
 export class JobStore {
   createJob(jobId: string, url: string = '', formatId: string = ''): DownloadJob {
-    const data = loadPersistentData();
     const job: DownloadJob = {
       id: jobId,
       url,
@@ -80,17 +34,24 @@ export class JobStore {
       updatedAt: Date.now(),
     };
 
-    data.jobs[jobId] = job;
-    savePersistentData();
+    testMemoryStore.set(jobId, job);
     if (redis) {
       redisJobStore.createJob(jobId, url, formatId).catch(() => {});
     }
     return job;
   }
 
+  async createJobAsync(jobId: string, url: string = '', formatId: string = ''): Promise<DownloadJob> {
+    const job = this.createJob(jobId, url, formatId);
+    if (redis) {
+      return await redisJobStore.createJob(jobId, url, formatId);
+    }
+    return job;
+  }
+
   updateJobProgress(jobId: string, percent: number, stage: JobStage, stageText: string): DownloadJob {
-    const data = loadPersistentData();
-    const job = data.jobs[jobId] || {
+    const existing = testMemoryStore.get(jobId);
+    const job: DownloadJob = existing || {
       id: jobId,
       url: '',
       formatId: '',
@@ -105,8 +66,7 @@ export class JobStore {
     job.stage = stage;
     job.stageText = stageText;
     job.updatedAt = Date.now();
-    data.jobs[jobId] = job;
-    savePersistentData();
+    testMemoryStore.set(jobId, job);
 
     if (redis) {
       redisJobStore.updateJobProgress(jobId, percent, stage, stageText).catch(() => {});
@@ -114,9 +74,17 @@ export class JobStore {
     return job;
   }
 
+  async updateJobProgressAsync(jobId: string, percent: number, stage: JobStage, stageText: string): Promise<DownloadJob> {
+    const job = this.updateJobProgress(jobId, percent, stage, stageText);
+    if (redis) {
+      return await redisJobStore.updateJobProgress(jobId, percent, stage, stageText);
+    }
+    return job;
+  }
+
   setJobCompleted(jobId: string, downloadUrl: string, filename: string, fileId?: string): DownloadJob {
-    const data = loadPersistentData();
-    const job = data.jobs[jobId] || {
+    const existing = testMemoryStore.get(jobId);
+    const job: DownloadJob = existing || {
       id: jobId,
       url: '',
       formatId: '',
@@ -134,8 +102,7 @@ export class JobStore {
     job.filename = filename;
     if (fileId) job.fileId = fileId;
     job.updatedAt = Date.now();
-    data.jobs[jobId] = job;
-    savePersistentData();
+    testMemoryStore.set(jobId, job);
 
     if (redis) {
       redisJobStore.setJobCompleted(jobId, downloadUrl, filename, fileId).catch(() => {});
@@ -143,9 +110,17 @@ export class JobStore {
     return job;
   }
 
+  async setJobCompletedAsync(jobId: string, downloadUrl: string, filename: string, fileId?: string): Promise<DownloadJob> {
+    const job = this.setJobCompleted(jobId, downloadUrl, filename, fileId);
+    if (redis) {
+      return await redisJobStore.setJobCompleted(jobId, downloadUrl, filename, fileId);
+    }
+    return job;
+  }
+
   setJobFailed(jobId: string, error: AppError): DownloadJob {
-    const data = loadPersistentData();
-    const job = data.jobs[jobId] || {
+    const existing = testMemoryStore.get(jobId);
+    const job: DownloadJob = existing || {
       id: jobId,
       url: '',
       formatId: '',
@@ -160,8 +135,7 @@ export class JobStore {
     job.stageText = 'Gagal mengunduh';
     job.error = error;
     job.updatedAt = Date.now();
-    data.jobs[jobId] = job;
-    savePersistentData();
+    testMemoryStore.set(jobId, job);
 
     if (redis) {
       redisJobStore.setJobFailed(jobId, error).catch(() => {});
@@ -169,35 +143,32 @@ export class JobStore {
     return job;
   }
 
-  getJob(jobId: string): DownloadJob | null {
-    const data = loadPersistentData();
-    return data.jobs[jobId] || null;
-  }
-
-  pushQueue(jobId: string): void {
-    const data = loadPersistentData();
-    if (!data.queue.includes(jobId)) {
-      data.queue.push(jobId);
-      savePersistentData();
+  async setJobFailedAsync(jobId: string, error: AppError): Promise<DownloadJob> {
+    const job = this.setJobFailed(jobId, error);
+    if (redis) {
+      return await redisJobStore.setJobFailed(jobId, error);
     }
+    return job;
   }
 
-  popQueue(): string | null {
-    const data = loadPersistentData();
-    const jobId = data.queue.shift() || null;
-    savePersistentData();
-    return jobId;
+  getJob(jobId: string): DownloadJob | null {
+    return testMemoryStore.get(jobId) || null;
+  }
+
+  async getJobAsync(jobId: string): Promise<DownloadJob | null> {
+    if (redis) {
+      const redisData = await redisJobStore.getJob(jobId);
+      if (redisData) return redisData;
+    }
+    return this.getJob(jobId);
   }
 
   cleanupExpired(ttlMs: number = 15 * 60 * 1000): void {
-    const data = loadPersistentData();
     const now = Date.now();
-    for (const [id, job] of Object.entries(data.jobs)) {
-      // 1. Remove expired jobs (>=15 mins)
+    for (const [id, job] of testMemoryStore.entries()) {
       if (now - job.updatedAt >= ttlMs) {
-        delete data.jobs[id];
+        testMemoryStore.delete(id);
       } else if (['queued', 'extracting', 'processing'].includes(job.stage) && now - job.updatedAt > 10 * 60 * 1000) {
-        // 2. Mark stale running jobs (>10 mins inactive) as failed
         job.stage = 'failed';
         job.stageText = 'Proses unduhan kedaluwarsa atau terhenti';
         job.error = {
@@ -208,12 +179,10 @@ export class JobStore {
         job.updatedAt = now;
       }
     }
-    savePersistentData();
   }
 
   reset(): void {
-    globalThis.__isave_redis_job_db__ = { jobs: {}, queue: [] };
-    savePersistentData();
+    testMemoryStore.clear();
   }
 }
 

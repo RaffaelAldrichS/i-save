@@ -134,9 +134,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Enqueue job to persistent store and independent worker queue
+    // Enqueue job to Redis store
     await enqueueDownloadJob(activeJobId, url, safeFormatId);
-    await publishQStashWorkerJob(activeJobId, req.headers.get('host') || undefined);
+
+    // Publish to QStash message broker
+    const qstashRes = await publishQStashWorkerJob(activeJobId, req.headers.get('host') || undefined);
+
+    if (process.env.QSTASH_TOKEN && !qstashRes.published) {
+      const appErr = mapToAppError('Gagal mengirimkan pekerjaan unduhan ke QStash queue broker');
+      await jobStore.setJobFailedAsync(activeJobId, appErr);
+      logger.log({
+        requestId: activeJobId,
+        provider: providerName,
+        action: 'download',
+        status: 'failed',
+        durationMs: Date.now() - startTime,
+        errorCode: appErr.code,
+      });
+      metricsTracker.recordDownload(providerName, false, Date.now() - startTime, appErr.code);
+      return NextResponse.json(
+        {
+          success: false,
+          error: appErr.message,
+          code: appErr.code,
+          retryable: true,
+        },
+        { status: 500 }
+      );
+    }
 
     // Immediate Async Response (202 Accepted semantics)
     logger.log({
@@ -225,40 +250,56 @@ export async function GET(req: NextRequest) {
   }
 
   const fileInfo = tempStorage.getFile(safeFileId);
-  if (!fileInfo || !fs.existsSync(fileInfo.filePath)) {
-    const appErr = mapToAppError('File tidak ditemukan atau telah kadaluarsa');
-    return NextResponse.json(
-      {
-        success: false,
-        error: appErr.message,
-        code: appErr.code,
-        retryable: appErr.retryable,
-        errorDetails: appErr,
+  if (fileInfo && fs.existsSync(fileInfo.filePath)) {
+    const ext = path.extname(fileInfo.filePath).replace('.', '') || 'bin';
+    const nodeStream = fs.createReadStream(fileInfo.filePath);
+
+    const webStream = new ReadableStream({
+      start(controller) {
+        nodeStream.on('data', (chunk) => controller.enqueue(chunk));
+        nodeStream.on('end', () => controller.close());
+        nodeStream.on('error', (err) => controller.error(err));
       },
-      { status: 404 }
-    );
+      cancel() {
+        nodeStream.destroy();
+      },
+    });
+
+    return new NextResponse(webStream as unknown as BodyInit, {
+      status: 200,
+      headers: {
+        'Content-Type': getMimeType(ext),
+        'Content-Disposition': `attachment; filename="${fileInfo.filename.replace(/["\\\r\n]/g, '_')}"`,
+        'Content-Length': fileInfo.size.toString(),
+      },
+    });
   }
 
-  const ext = path.extname(fileInfo.filePath).replace('.', '') || 'bin';
-  const nodeStream = fs.createReadStream(fileInfo.filePath);
+  // Object Storage (Vercel Blob) lookup from Redis job
+  const job = await jobStore.getJobAsync(safeFileId);
+  if (job && job.downloadUrl && job.downloadUrl.startsWith('https://')) {
+    const ext = path.extname(job.filename || 'file.mp4').replace('.', '') || 'mp4';
+    const res = await fetch(job.downloadUrl);
+    if (res.ok && res.body) {
+      return new NextResponse(res.body as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          'Content-Type': getMimeType(ext),
+          'Content-Disposition': `attachment; filename="${(job.filename || 'media.mp4').replace(/["\\\r\n]/g, '_')}"`,
+        },
+      });
+    }
+  }
 
-  const webStream = new ReadableStream({
-    start(controller) {
-      nodeStream.on('data', (chunk) => controller.enqueue(chunk));
-      nodeStream.on('end', () => controller.close());
-      nodeStream.on('error', (err) => controller.error(err));
+  const appErr = mapToAppError('File tidak ditemukan atau telah kadaluarsa');
+  return NextResponse.json(
+    {
+      success: false,
+      error: appErr.message,
+      code: appErr.code,
+      retryable: appErr.retryable,
+      errorDetails: appErr,
     },
-    cancel() {
-      nodeStream.destroy();
-    },
-  });
-
-  return new NextResponse(webStream as unknown as BodyInit, {
-    status: 200,
-    headers: {
-      'Content-Type': getMimeType(ext),
-      'Content-Disposition': `attachment; filename="${fileInfo.filename.replace(/["\\\r\n]/g, '_')}"`,
-      'Content-Length': fileInfo.size.toString(),
-    },
-  });
+    { status: 404 }
+  );
 }

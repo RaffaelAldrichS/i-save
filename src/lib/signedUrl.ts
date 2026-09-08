@@ -1,6 +1,15 @@
 import crypto from 'crypto';
 
-const SIGNING_SECRET = process.env.DOWNLOAD_SIGNING_SECRET || 'isave-secret-signing-key-default-2026';
+function getSigningSecret(): string {
+  const secret = process.env.DOWNLOAD_SIGNING_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL: DOWNLOAD_SIGNING_SECRET environment variable is missing in production');
+    }
+    return 'isave-dev-signing-secret-key-2026';
+  }
+  return secret;
+}
 
 export interface VerifySignedUrlResult {
   valid: boolean;
@@ -15,10 +24,11 @@ export function createSignedDownloadUrl(
   filename: string,
   ttlSeconds: number = 900
 ): string {
+  const secret = getSigningSecret();
   const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
   const cleanFilename = filename.replace(/["\\\r\n]/g, '_');
   const payload = `${fileId}:${expires}:${cleanFilename}`;
-  const signature = crypto.createHmac('sha256', SIGNING_SECRET).update(payload).digest('hex');
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
   return `/api/download?fileId=${fileId}&expires=${expires}&signature=${signature}&filename=${encodeURIComponent(cleanFilename)}`;
 }
@@ -46,9 +56,16 @@ export function verifySignedDownloadUrl(
     return { valid: false, error: 'Tautan unduhan telah kadaluarsa' };
   }
 
+  let secret: string;
+  try {
+    secret = getSigningSecret();
+  } catch (err: unknown) {
+    return { valid: false, error: err instanceof Error ? err.message : 'Missing secret' };
+  }
+
   const cleanFilename = (filename || '').replace(/["\\\r\n]/g, '_');
   const payload = `${fileId}:${expires}:${cleanFilename}`;
-  const expectedSignature = crypto.createHmac('sha256', SIGNING_SECRET).update(payload).digest('hex');
+  const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
   const sigBuffer = Buffer.from(signature, 'hex');
   const expectedBuffer = Buffer.from(expectedSignature, 'hex');

@@ -56,7 +56,7 @@ describe('P2 Final Phase - Reliability & Observability Suite', () => {
 
       const job = jobStore.getJob(jobId);
       if (job) {
-        job.updatedAt = Date.now() - (11 * 60 * 1000); // 11 minutes ago
+        job.updatedAt = Date.now() - (12 * 60 * 1000); // 12 minutes ago
       }
 
       jobStore.cleanupExpired(15 * 60 * 1000);
