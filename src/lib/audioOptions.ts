@@ -5,6 +5,15 @@ export type AudioBitrate = '320kbps' | '192kbps' | '128kbps';
 export function generateAudioFormats(mediaId: string): MediaItem[] {
   return [
     {
+      id: `${mediaId}-audio-m4a`,
+      type: 'audio',
+      mimeType: 'audio/mp4',
+      quality: 'Audio M4A / AAC (Kualitas Asli)',
+      ext: 'm4a',
+      formatId: 'audio-m4a',
+      requiresMerge: false,
+    },
+    {
       id: `${mediaId}-audio-320kbps`,
       type: 'audio',
       mimeType: 'audio/mpeg',

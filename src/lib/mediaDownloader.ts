@@ -275,19 +275,25 @@ export async function processMediaDownload(
 
     const isSub = formatId.includes('sub');
     if (isSub) {
+      const lang = formatId.includes('sub-en') ? 'en' : formatId.includes('sub-id') ? 'id,ind' : 'id,en,ind,auto';
+      const subExt = formatId.includes('vtt') ? 'vtt' : 'srt';
       ytDlpArgs.push(
         '--write-subs',
         '--write-auto-subs',
         '--sub-lang',
-        'id,en,ind,auto',
+        lang,
         '--skip-download',
         '--convert-subs',
-        'srt'
+        subExt
       );
     } else if (isAudio) {
-      const bitrateMatch = formatId.match(/(320|192|128)kbps/);
-      const quality = bitrateMatch ? `${bitrateMatch[1]}k` : '320k';
-      ytDlpArgs.push('-x', '--audio-format', 'mp3', '--audio-quality', quality);
+      if (formatId.includes('m4a')) {
+        ytDlpArgs.push('-x', '--audio-format', 'm4a');
+      } else {
+        const bitrateMatch = formatId.match(/(320|192|128)kbps/);
+        const quality = bitrateMatch ? `${bitrateMatch[1]}k` : '320k';
+        ytDlpArgs.push('-x', '--audio-format', 'mp3', '--audio-quality', quality);
+      }
     } else {
       const heightMatch = formatId.match(/(\d{3,4})p/);
       if (heightMatch) {
