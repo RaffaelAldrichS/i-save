@@ -3,10 +3,12 @@ import { tempStorage } from '@/lib/tempStorage';
 import { apiRateLimiter, getClientIp } from '@/lib/rateLimit';
 import { processMediaDownload } from '@/lib/mediaDownloader';
 import { isSafeExternalUrl, getMimeType } from '@/lib/security';
+import { progressTracker } from '@/lib/progressTracker';
 import fs from 'fs';
 import path from 'path';
 
 export async function POST(req: NextRequest) {
+  let activeJobId: string | undefined;
   try {
     tempStorage.cleanupExpired();
 
@@ -29,7 +31,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { url, formatId } = body;
+    const { url, formatId, jobId } = body;
+    activeJobId = typeof jobId === 'string' ? jobId : undefined;
 
     if (!url || !formatId || typeof formatId !== 'string') {
       return NextResponse.json(
@@ -54,10 +57,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const downloadRes = await processMediaDownload(url, safeFormatId);
+    if (activeJobId) {
+      progressTracker.createJob(activeJobId);
+    }
+
+    const downloadRes = await processMediaDownload(url, safeFormatId, activeJobId);
     const fileInfo = downloadRes.filePath && fs.existsSync(downloadRes.filePath)
       ? await tempStorage.registerFileFromPath(downloadRes.filePath, downloadRes.filename)
       : await tempStorage.saveFile(downloadRes.filename, downloadRes.buffer);
+
+    if (activeJobId) {
+      progressTracker.setCompleted(activeJobId);
+    }
 
     return NextResponse.json({
       success: true,
@@ -66,6 +77,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Gagal memproses unduhan';
+    if (activeJobId) {
+      progressTracker.setError(activeJobId, message);
+    }
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

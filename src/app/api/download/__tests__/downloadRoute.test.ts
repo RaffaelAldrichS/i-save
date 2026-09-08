@@ -33,7 +33,7 @@ describe('POST & GET /api/download', () => {
   it('should return error response instead of 50-byte mock file if download engine fails', async () => {
     const req = new NextRequest('http://localhost/api/download', {
       method: 'POST',
-      body: JSON.stringify({ url: 'https://invalid-domain-does-not-exist.com/test', formatId: 'invalid-fmt' }),
+      body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=invalid_id_test_500', formatId: 'invalid-fmt' }),
     });
 
     const res = await POST(req);
