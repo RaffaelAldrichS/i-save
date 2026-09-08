@@ -7,7 +7,7 @@ export interface DownloadProgress {
   updatedAt: number;
 }
 
-class ProgressTracker {
+export class ProgressTracker {
   private jobs: Map<string, DownloadProgress> = new Map();
 
   createJob(jobId: string): DownloadProgress {
@@ -78,6 +78,10 @@ class ProgressTracker {
         this.jobs.delete(id);
       }
     }
+  }
+
+  reset() {
+    this.jobs.clear();
   }
 }
 

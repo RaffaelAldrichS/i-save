@@ -2,9 +2,6 @@ import { MediaExtractor } from './types';
 import { YouTubeExtractor } from './youtube';
 import { TikTokExtractor } from './tiktok';
 import { InstagramExtractor } from './instagram';
-import { TwitterExtractor } from './twitter';
-import { RedditExtractor } from './reddit';
-import { ThreadsExtractor } from './threads';
 import { MediaMetadata } from '@/types/media';
 
 export class ExtractorManager {
@@ -12,9 +9,6 @@ export class ExtractorManager {
     new YouTubeExtractor(),
     new TikTokExtractor(),
     new InstagramExtractor(),
-    new TwitterExtractor(),
-    new RedditExtractor(),
-    new ThreadsExtractor(),
   ];
 
   getExtractor(url: string): MediaExtractor | undefined {

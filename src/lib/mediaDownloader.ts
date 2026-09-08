@@ -8,6 +8,7 @@ import { Readable } from 'stream';
 import ffmpegPath from 'ffmpeg-static';
 import { buildCarouselZip, ImageFile } from './carouselZip';
 import { progressTracker } from './progressTracker';
+import { isSafeExternalUrl } from './security';
 
 const execFilePromise = util.promisify(execFile);
 
@@ -152,7 +153,7 @@ export async function processMediaDownload(
   // 1.b Instagram Photo / Carousel / Slide Handler
   if (/(?:instagram\.com|instagr\.am)/i.test(url) && (isImage || isZip || formatId.includes('slide-') || formatId.includes('zip'))) {
     try {
-      const matchCode = url.match(/(?:p|reel|reels|tv|share\/p|share\/reel)\/([a-zA-Z0-9_-]+)/i);
+      const matchCode = url.match(/(?:p|reel|reels|tv|stories|share\/p|share\/reel)\/([a-zA-Z0-9_-]+)/i);
       const shortcode = matchCode ? matchCode[1] : null;
 
       if (shortcode) {
@@ -249,6 +250,9 @@ export async function processMediaDownload(
   }
 
   // 2. yt-dlp Handler for YouTube, Instagram, TikTok fallback
+  if (!(await isSafeExternalUrl(url))) {
+    throw new Error('URL tidak valid atau mengarah ke alamat internal yang dilarang');
+  }
   try {
     const ytDlpArgs = [
       '--no-exec',
