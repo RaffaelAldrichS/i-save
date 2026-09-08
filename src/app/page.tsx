@@ -58,23 +58,6 @@ export default function Home() {
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     setDownloadProgress({ percent: 5, stageText: 'Menyiapkan proses unduhan...' });
 
-    const pollInterval = setInterval(async () => {
-      try {
-        const pRes = await fetch(`/api/download/progress?jobId=${jobId}`);
-        if (pRes.ok) {
-          const pJson = await pRes.json();
-          if (pJson.success && pJson.data) {
-            setDownloadProgress({
-              percent: pJson.data.percent || 5,
-              stageText: pJson.data.stageText || 'Memproses unduhan...',
-            });
-          }
-        }
-      } catch {
-        // Ignore polling error
-      }
-    }, 500);
-
     try {
       const res = await fetch('/api/download', {
         method: 'POST',
@@ -83,17 +66,56 @@ export default function Home() {
       });
 
       const json = await res.json();
-      if (!res.ok || !json.success || !json.downloadUrl) {
+      if (!res.ok || !json.success) {
         throw new Error(json.error || 'Gagal menyiapkan unduhan');
       }
 
+      // Async job queued (HTTP 202). Poll progress until the worker completes and
+      // a signed download URL becomes available.
+      const deadline = Date.now() + 15 * 60 * 1000;
+      let finalUrl: string | null = null;
+      let finalFilename: string | null = null;
+
+      while (Date.now() < deadline) {
+        const pRes = await fetch(`/api/download/progress?jobId=${jobId}`);
+        if (!pRes.ok) {
+          await new Promise((r) => setTimeout(r, 750));
+          continue;
+        }
+        const pJson = await pRes.json();
+        const data = pJson.data;
+
+        if (pJson.success && data) {
+          setDownloadProgress({
+            percent: data.percent || 5,
+            stageText: data.stageText || 'Memproses unduhan...',
+          });
+
+          if (data.jobStage === 'failed' || data.stage === 'error') {
+            throw new Error(data.error || data.errorDetails?.message || 'Gagal menyiapkan unduhan');
+          }
+
+          if (data.jobStage === 'completed' && data.downloadUrl) {
+            finalUrl = data.downloadUrl;
+            finalFilename = data.filename || 'media.mp4';
+            break;
+          }
+        }
+
+        await new Promise((r) => setTimeout(r, 750));
+      }
+
+      if (!finalUrl) {
+        throw new Error('Waktu proses unduhan habis. Silakan coba lagi.');
+      }
+
       setDownloadProgress({ percent: 100, stageText: 'Selesai!' });
-      setLastDownloadUrl(json.downloadUrl);
-      setLastFilename(json.filename || 'media.mp4');
+      setLastDownloadUrl(finalUrl);
+      setLastFilename(finalFilename);
 
       const link = document.createElement('a');
-      link.href = json.downloadUrl;
-      link.download = json.filename || 'media.mp4';
+      link.href = finalUrl;
+      link.download = finalFilename || 'media.mp4';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -101,7 +123,6 @@ export default function Home() {
       const msg = err instanceof Error ? err.message : 'Gagal memulai unduhan';
       setDownloadError(msg);
     } finally {
-      clearInterval(pollInterval);
       setTimeout(() => {
         setProcessingFormat(null);
         setDownloadProgress(null);
