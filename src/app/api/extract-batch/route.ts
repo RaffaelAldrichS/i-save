@@ -4,6 +4,7 @@ import { apiRateLimiter, getClientIp } from '@/lib/rateLimit';
 import { isSafeExternalUrl, parseMultiUrls } from '@/lib/security';
 import { tempStorage } from '@/lib/tempStorage';
 import { progressTracker } from '@/lib/progressTracker';
+import { mapToAppError } from '@/lib/errors';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,10 +15,14 @@ export async function POST(req: NextRequest) {
     const rateCheck = apiRateLimiter.check(ip);
 
     if (!rateCheck.allowed) {
+      const appErr = mapToAppError(`Terlalu banyak permintaan (Rate limit). Coba lagi dalam ${rateCheck.retryAfterSeconds} detik.`);
       return NextResponse.json(
         {
           success: false,
-          error: `Terlalu banyak permintaan (Rate limit). Coba lagi dalam ${rateCheck.retryAfterSeconds} detik.`,
+          error: appErr.message,
+          code: appErr.code,
+          retryable: appErr.retryable,
+          errorDetails: appErr,
         },
         {
           status: 429,
@@ -44,8 +49,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (urls.length === 0) {
+      const appErr = mapToAppError('Tidak ada URL valid yang ditemukan');
       return NextResponse.json(
-        { success: false, error: 'Tidak ada URL valid yang ditemukan' },
+        {
+          success: false,
+          error: appErr.message,
+          code: appErr.code,
+          retryable: appErr.retryable,
+          errorDetails: appErr,
+        },
         { status: 400 }
       );
     }
@@ -64,7 +76,16 @@ export async function POST(req: NextRequest) {
       }
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Gagal mengekstraksi batch media';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    const appErr = mapToAppError(err);
+    return NextResponse.json(
+      {
+        success: false,
+        error: appErr.message,
+        code: appErr.code,
+        retryable: appErr.retryable,
+        errorDetails: appErr,
+      },
+      { status: 400 }
+    );
   }
 }

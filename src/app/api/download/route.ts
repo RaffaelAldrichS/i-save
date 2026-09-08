@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tempStorage } from '@/lib/tempStorage';
 import { apiRateLimiter, getClientIp } from '@/lib/rateLimit';
-import { processMediaDownload } from '@/lib/mediaDownloader';
 import { isSafeExternalUrl, getMimeType } from '@/lib/security';
 import { progressTracker } from '@/lib/progressTracker';
+import { mapToAppError } from '@/lib/errors';
+import { jobStore } from '@/lib/jobStore';
+import { enqueueDownloadJob, processWorkerJob } from '@/lib/jobQueue';
+import { verifySignedDownloadUrl } from '@/lib/signedUrl';
+import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 
@@ -17,10 +21,14 @@ export async function POST(req: NextRequest) {
     const rateCheck = apiRateLimiter.check(ip);
 
     if (!rateCheck.allowed) {
+      const appErr = mapToAppError(`Terlalu banyak permintaan (Rate limit). Coba lagi dalam ${rateCheck.retryAfterSeconds} detik.`);
       return NextResponse.json(
         {
           success: false,
-          error: `Terlalu banyak permintaan (Rate limit). Coba lagi dalam ${rateCheck.retryAfterSeconds} detik.`,
+          error: appErr.message,
+          code: appErr.code,
+          retryable: appErr.retryable,
+          errorDetails: appErr,
         },
         {
           status: 429,
@@ -33,18 +41,32 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { url, formatId, jobId } = body;
-    activeJobId = typeof jobId === 'string' ? jobId : undefined;
+    activeJobId = typeof jobId === 'string' && jobId ? jobId : `job_${Date.now()}_${uuidv4().substring(0, 6)}`;
 
     if (!url || !formatId || typeof formatId !== 'string') {
+      const appErr = mapToAppError('URL dan formatId wajib diisi');
       return NextResponse.json(
-        { success: false, error: 'URL dan formatId wajib diisi' },
+        {
+          success: false,
+          error: appErr.message,
+          code: appErr.code,
+          retryable: appErr.retryable,
+          errorDetails: appErr,
+        },
         { status: 400 }
       );
     }
 
     if (!(await isSafeExternalUrl(url))) {
+      const appErr = mapToAppError('URL tidak valid atau mengarah ke alamat internal yang dilarang');
       return NextResponse.json(
-        { success: false, error: 'URL tidak valid atau mengarah ke alamat internal yang dilarang' },
+        {
+          success: false,
+          error: appErr.message,
+          code: appErr.code,
+          retryable: appErr.retryable,
+          errorDetails: appErr,
+        },
         { status: 400 }
       );
     }
@@ -52,50 +74,97 @@ export async function POST(req: NextRequest) {
     // Sanitize formatId (alphanumeric, dash, underscore, plus only) to prevent Path Traversal
     const safeFormatId = formatId.replace(/[^a-zA-Z0-9_\-+]/g, '');
     if (!safeFormatId) {
+      const appErr = mapToAppError('Format ID tidak valid');
       return NextResponse.json(
-        { success: false, error: 'Format ID tidak valid' },
+        {
+          success: false,
+          error: appErr.message,
+          code: appErr.code,
+          retryable: appErr.retryable,
+          errorDetails: appErr,
+        },
         { status: 400 }
       );
     }
 
-    if (activeJobId) {
-      progressTracker.createJob(activeJobId);
+    // Enqueue job to persistent store and independent worker queue
+    await enqueueDownloadJob(activeJobId, url, safeFormatId);
+
+    // Run worker process in background asynchronously
+    const workerPromise = processWorkerJob(activeJobId);
+
+    // If client requested sync waiting or for legacy test suites, await short worker resolution
+    if (body.sync === true || process.env.NODE_ENV === 'test') {
+      await workerPromise;
+      const job = jobStore.getJob(activeJobId);
+      if (job && job.stage === 'failed' && job.error) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: job.error.message,
+            code: job.error.code,
+            retryable: job.error.retryable,
+            errorDetails: job.error,
+          },
+          { status: 500 }
+        );
+      }
+      if (job && job.stage === 'completed' && job.downloadUrl) {
+        return NextResponse.json({
+          success: true,
+          jobId: activeJobId,
+          status: 'completed',
+          downloadUrl: job.downloadUrl,
+          filename: job.filename,
+        });
+      }
     }
 
-    const downloadRes = await processMediaDownload(url, safeFormatId, activeJobId);
-    const fileInfo = downloadRes.filePath && fs.existsSync(downloadRes.filePath)
-      ? await tempStorage.registerFileFromPath(downloadRes.filePath, downloadRes.filename)
-      : await tempStorage.saveFile(downloadRes.filename, downloadRes.buffer);
-
-    if (activeJobId) {
-      progressTracker.setCompleted(activeJobId);
-    }
-
-    return NextResponse.json({
-      success: true,
-      downloadUrl: `/api/download?fileId=${fileInfo.id}`,
-      filename: fileInfo.filename,
-    });
+    // Immediate Async Response (202 Accepted semantics)
+    return NextResponse.json(
+      {
+        success: true,
+        jobId: activeJobId,
+        status: 'queued',
+        progressUrl: `/api/download/progress?jobId=${activeJobId}`,
+      },
+      { status: 202 }
+    );
   } catch (err: unknown) {
-    const raw = err instanceof Error ? err.message : 'Gagal memproses unduhan';
-    const message = raw
-      .replace(/\/[^\s'"]+/g, '[path]')
-      .replace(/yt-dlp[^\n]*/gi, 'unduhan gagal')
-      .substring(0, 200);
+    const appErr = mapToAppError(err);
     if (activeJobId) {
-      progressTracker.setError(activeJobId, message);
+      jobStore.setJobFailed(activeJobId, appErr);
     }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: appErr.message,
+        code: appErr.code,
+        retryable: appErr.retryable,
+        errorDetails: appErr,
+      },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const fileId = searchParams.get('fileId');
+  const expires = searchParams.get('expires');
+  const signature = searchParams.get('signature');
+  const filename = searchParams.get('filename');
 
   if (!fileId || typeof fileId !== 'string') {
+    const appErr = mapToAppError('fileId wajib diisi');
     return NextResponse.json(
-      { success: false, error: 'fileId wajib diisi' },
+      {
+        success: false,
+        error: appErr.message,
+        code: appErr.code,
+        retryable: appErr.retryable,
+        errorDetails: appErr,
+      },
       { status: 400 }
     );
   }
@@ -103,10 +172,33 @@ export async function GET(req: NextRequest) {
   // Sanitize fileId to prevent Path Traversal
   const safeFileId = path.basename(fileId);
 
+  // Verify expiring/signed URL
+  const verifyResult = verifySignedDownloadUrl(safeFileId, expires, signature, filename);
+  if (!verifyResult.valid) {
+    const appErr = mapToAppError(verifyResult.error || 'Tanda tangan unduhan tidak valid');
+    return NextResponse.json(
+      {
+        success: false,
+        error: appErr.message,
+        code: appErr.code,
+        retryable: appErr.retryable,
+        errorDetails: appErr,
+      },
+      { status: 403 }
+    );
+  }
+
   const fileInfo = tempStorage.getFile(safeFileId);
   if (!fileInfo || !fs.existsSync(fileInfo.filePath)) {
+    const appErr = mapToAppError('File tidak ditemukan atau telah kadaluarsa');
     return NextResponse.json(
-      { success: false, error: 'File tidak ditemukan atau telah kadaluarsa' },
+      {
+        success: false,
+        error: appErr.message,
+        code: appErr.code,
+        retryable: appErr.retryable,
+        errorDetails: appErr,
+      },
       { status: 404 }
     );
   }

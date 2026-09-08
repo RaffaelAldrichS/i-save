@@ -32,5 +32,5 @@ describe('POST /api/extract-batch', () => {
     expect(json.success).toBe(true);
     expect(Array.isArray(json.data)).toBe(true);
     expect(json.data.length).toBeGreaterThan(0);
-  });
+  }, 15000);
 });

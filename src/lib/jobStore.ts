@@ -1,0 +1,195 @@
+import { AppError } from './errors';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
+export type JobStage = 'queued' | 'extracting' | 'processing' | 'ready' | 'completed' | 'failed';
+
+export interface DownloadJob {
+  id: string;
+  url: string;
+  formatId: string;
+  stage: JobStage;
+  percent: number;
+  stageText: string;
+  downloadUrl?: string;
+  fileId?: string;
+  filename?: string;
+  error?: AppError;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Global persistent storage backing interface (Redis / File-backed KV store)
+interface PersistentJobData {
+  jobs: Record<string, DownloadJob>;
+  queue: string[];
+}
+
+const DB_FILE_PATH = path.join(os.tmpdir(), 'isave-persistent-jobs-db.json');
+
+declare global {
+  var __isave_redis_job_db__: PersistentJobData | undefined;
+}
+
+function loadPersistentData(): PersistentJobData {
+  if (globalThis.__isave_redis_job_db__) {
+    return globalThis.__isave_redis_job_db__;
+  }
+
+  try {
+    if (fs.existsSync(DB_FILE_PATH)) {
+      const raw = fs.readFileSync(DB_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(raw);
+      globalThis.__isave_redis_job_db__ = parsed;
+      return parsed;
+    }
+  } catch {
+    // Ignore read errors
+  }
+
+  const initial: PersistentJobData = { jobs: {}, queue: [] };
+  globalThis.__isave_redis_job_db__ = initial;
+  return initial;
+}
+
+function savePersistentData(): void {
+  const data = globalThis.__isave_redis_job_db__;
+  if (!data) return;
+  try {
+    fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data), 'utf-8');
+  } catch {
+    // Ignore write errors
+  }
+}
+
+export class JobStore {
+  createJob(jobId: string, url: string = '', formatId: string = ''): DownloadJob {
+    const data = loadPersistentData();
+    const existing = data.jobs[jobId];
+    const job: DownloadJob = existing || {
+      id: jobId,
+      url,
+      formatId,
+      stage: 'queued',
+      percent: 0,
+      stageText: 'Menyiapkan antrean proses...',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (url) job.url = url;
+    if (formatId) job.formatId = formatId;
+
+    data.jobs[jobId] = job;
+    savePersistentData();
+    return job;
+  }
+
+  updateJobProgress(jobId: string, percent: number, stage: JobStage, stageText: string): DownloadJob {
+    const data = loadPersistentData();
+    const job = data.jobs[jobId] || {
+      id: jobId,
+      url: '',
+      formatId: '',
+      stage,
+      percent: 0,
+      stageText: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    job.percent = Math.min(100, Math.max(0, Math.round(percent)));
+    job.stage = stage;
+    job.stageText = stageText;
+    job.updatedAt = Date.now();
+    data.jobs[jobId] = job;
+    savePersistentData();
+    return job;
+  }
+
+  setJobCompleted(jobId: string, downloadUrl: string, filename: string, fileId?: string): DownloadJob {
+    const data = loadPersistentData();
+    const job = data.jobs[jobId] || {
+      id: jobId,
+      url: '',
+      formatId: '',
+      stage: 'completed',
+      percent: 100,
+      stageText: 'Selesai!',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    job.stage = 'completed';
+    job.percent = 100;
+    job.stageText = 'Selesai!';
+    job.downloadUrl = downloadUrl;
+    job.filename = filename;
+    if (fileId) job.fileId = fileId;
+    job.updatedAt = Date.now();
+    data.jobs[jobId] = job;
+    savePersistentData();
+    return job;
+  }
+
+  setJobFailed(jobId: string, error: AppError): DownloadJob {
+    const data = loadPersistentData();
+    const job = data.jobs[jobId] || {
+      id: jobId,
+      url: '',
+      formatId: '',
+      stage: 'failed',
+      percent: 0,
+      stageText: 'Gagal mengunduh',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    job.stage = 'failed';
+    job.stageText = 'Gagal mengunduh';
+    job.error = error;
+    job.updatedAt = Date.now();
+    data.jobs[jobId] = job;
+    savePersistentData();
+    return job;
+  }
+
+  getJob(jobId: string): DownloadJob | null {
+    const data = loadPersistentData();
+    return data.jobs[jobId] || null;
+  }
+
+  pushQueue(jobId: string): void {
+    const data = loadPersistentData();
+    if (!data.queue.includes(jobId)) {
+      data.queue.push(jobId);
+      savePersistentData();
+    }
+  }
+
+  popQueue(): string | null {
+    const data = loadPersistentData();
+    const jobId = data.queue.shift() || null;
+    savePersistentData();
+    return jobId;
+  }
+
+  cleanupExpired(ttlMs: number = 15 * 60 * 1000): void {
+    const data = loadPersistentData();
+    const now = Date.now();
+    for (const [id, job] of Object.entries(data.jobs)) {
+      if (now - job.updatedAt > ttlMs) {
+        delete data.jobs[id];
+      }
+    }
+    savePersistentData();
+  }
+
+  reset(): void {
+    globalThis.__isave_redis_job_db__ = { jobs: {}, queue: [] };
+    savePersistentData();
+  }
+}
+
+export const jobStore = new JobStore();
