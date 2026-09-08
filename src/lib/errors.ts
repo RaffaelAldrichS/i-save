@@ -96,7 +96,25 @@ export function mapToAppError(err: unknown): AppError {
     };
   }
 
-  if (lower.includes('privat') || lower.includes('private') || lower.includes('diubah ke privat')) {
+  if (
+    lower.includes('empty media response') ||
+    lower.includes('pembatasan akses cdn instagram') ||
+    lower.includes('instagram sent an empty media response')
+  ) {
+    return {
+      code: 'EXTRACTION_FAILED',
+      message: 'Gagal mengunduh media Instagram publik karena pembatasan akses CDN/cloud IP Instagram.',
+      retryable: true,
+      providerError: rawMessage,
+    };
+  }
+
+  if (
+    lower.includes('this account is private') ||
+    lower.includes('this post is private') ||
+    lower.includes('diubah ke privat') ||
+    (lower.includes('privat') && !lower.includes('yt-dlp') && !lower.includes('empty media'))
+  ) {
     return {
       code: 'PRIVATE',
       message: 'Media disetel privat atau membutuhkan otentikasi untuk diakses.',

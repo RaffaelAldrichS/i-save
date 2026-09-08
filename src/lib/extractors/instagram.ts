@@ -53,6 +53,8 @@ export class InstagramProvider implements Provider {
     let isVideo = isReel || isStory;
     let slideImages: string[] = [];
     let mediaItems: MediaItem[] = [];
+    let directVideoUrl: string | undefined = undefined;
+    let directImageUrl: string | undefined = undefined;
 
     try {
       const ytDlpBin = await getYtDlpExecutablePath();
@@ -80,6 +82,7 @@ export class InstagramProvider implements Provider {
         title?: string;
         thumbnail?: string;
         formats?: unknown[];
+        url?: string;
       } | null = null;
       if (stdout && stdout.trim().startsWith('{')) {
         try {
@@ -90,6 +93,19 @@ export class InstagramProvider implements Provider {
       }
 
       if (parsed) {
+        if (typeof parsed.url === 'string' && parsed.url.startsWith('http')) {
+          directVideoUrl = parsed.url;
+        } else if (parsed.formats && Array.isArray(parsed.formats) && parsed.formats.length > 0) {
+          const lastFmt = parsed.formats[parsed.formats.length - 1] as any;
+          if (lastFmt && typeof lastFmt.url === 'string' && lastFmt.url.startsWith('http')) {
+            directVideoUrl = lastFmt.url;
+          }
+        }
+
+        if (parsed.thumbnail && parsed.thumbnail.startsWith('http')) {
+          directImageUrl = parsed.thumbnail;
+        }
+
         if (parsed.uploader || parsed.channel) {
           const uploaderName = parsed.channel || parsed.uploader || '';
           authorName = uploaderName.startsWith('@') ? uploaderName : `@${uploaderName}`;
@@ -147,6 +163,7 @@ export class InstagramProvider implements Provider {
           quality: isStory ? 'Story Video (MP4)' : 'Video HD (MP4)',
           ext: 'mp4',
           requiresMerge: false,
+          ...(directVideoUrl ? { url: directVideoUrl } : {}),
         },
         {
           id: `ig-${shortcode}-img`,
@@ -155,6 +172,7 @@ export class InstagramProvider implements Provider {
           quality: 'Cover / Thumbnail (JPG)',
           ext: 'jpg',
           requiresMerge: false,
+          ...(directImageUrl ? { url: directImageUrl } : {}),
         },
         ...generateAudioFormats(`ig-${shortcode}`),
       ];
@@ -167,6 +185,7 @@ export class InstagramProvider implements Provider {
           quality: 'Foto High-Res (JPG)',
           ext: 'jpg',
           requiresMerge: false,
+          ...(directImageUrl ? { url: directImageUrl } : {}),
           images: slideImages,
         },
       ];

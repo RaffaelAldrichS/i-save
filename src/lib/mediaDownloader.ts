@@ -43,6 +43,35 @@ export async function processMediaDownload(
   }
   const tempFilePath = path.join(jobDir, `${filePrefix}.${ext}`);
 
+  // 0. Direct Media CDN URL Handler (e.g. cdninstagram / fbcdn direct links)
+  if (url.startsWith('http') && (url.includes('cdninstagram.com') || url.includes('fbcdn.net'))) {
+    if (await isSafeExternalUrl(url)) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
+        });
+        if (res.ok && res.body) {
+          const fileStream = fs.createWriteStream(tempFilePath);
+          await pipeline(Readable.fromWeb(res.body as any), fileStream);
+          if (fs.existsSync(tempFilePath) && fs.statSync(tempFilePath).size > 100) {
+            return {
+              filePath: tempFilePath,
+              get buffer() {
+                return fs.readFileSync(tempFilePath);
+              },
+              filename: `instagram_media.${ext}`,
+              ext,
+            };
+          }
+        }
+      } catch {
+        // Fall back if direct fetch fails
+      }
+    }
+  }
+
   // 1. TikTok Handler via TikWM API (Supports Video, Audio, and Photo Carousel Slides)
   if (/tiktok\.com/i.test(url)) {
     try {
@@ -334,6 +363,11 @@ export async function processMediaDownload(
         }
       }, 120000); // 120 second timeout
 
+      let stderrBuffer = '';
+      child.stderr?.on('data', (data: Buffer) => {
+        stderrBuffer += data.toString();
+      });
+
       child.stdout?.on('data', (data: Buffer) => {
         const text = data.toString();
         if (jobId) {
@@ -352,7 +386,12 @@ export async function processMediaDownload(
         if (isSettled) return;
         isSettled = true;
         if (code === 0) resolve();
-        else reject(new Error(`Proses yt-dlp selesai dengan kode ${code}`));
+        else {
+          const errMsg = stderrBuffer.trim()
+            ? `Proses yt-dlp selesai dengan kode ${code}: ${stderrBuffer.trim()}`
+            : `Proses yt-dlp selesai dengan kode ${code}`;
+          reject(new Error(errMsg));
+        }
       });
 
       child.on('error', (err) => {

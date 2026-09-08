@@ -50,6 +50,24 @@ describe('P1.4 & P1.5 — Async Download Architecture & Structured Errors', () =
       expect(err2.code).not.toBe('PRIVATE');
     });
 
+    it('maps Instagram empty media response or CDN rate limit to EXTRACTION_FAILED, not PRIVATE', () => {
+      const err1 = mapToAppError('ERROR: [Instagram] C5s-pMhS8f0: Instagram sent an empty media response.');
+      expect(err1.code).toBe('EXTRACTION_FAILED');
+      expect(err1.code).not.toBe('PRIVATE');
+      expect(err1.retryable).toBe(true);
+
+      const err2 = mapToAppError('Proses yt-dlp selesai dengan kode 1: ERROR: [Instagram] Instagram sent an empty media response.');
+      expect(err2.code).toBe('EXTRACTION_FAILED');
+      expect(err2.code).not.toBe('PRIVATE');
+      expect(err2.retryable).toBe(true);
+    });
+
+    it('maps explicitly private Instagram posts or accounts to PRIVATE', () => {
+      const err = mapToAppError('ERROR: [Instagram] This account is private.');
+      expect(err.code).toBe('PRIVATE');
+      expect(err.retryable).toBe(false);
+    });
+
     it('preserves AppCustomError instances without re-mapping', () => {
       const custom = new AppCustomError('PRIVATE', 'Custom private message', false, 'provider_403');
       const mapped = mapToAppError(custom);
