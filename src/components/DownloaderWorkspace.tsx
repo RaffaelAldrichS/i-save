@@ -30,6 +30,10 @@ import {
   TiktokIcon,
   InstagramIcon,
   FacebookIcon,
+  TwitterIcon,
+  RedditIcon,
+  ThreadsIcon,
+  PinterestIcon,
 } from "./BrandIcons";
 import { QrCodeModal } from "./QrCodeModal";
 import { BookmarkletModal } from "./BookmarkletModal";
@@ -110,14 +114,21 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
     }
   };
 
+  const BRAND_ICONS: Record<string, React.FC<{ className?: string }>> = {
+    youtube: YoutubeIcon,
+    tiktok: TiktokIcon,
+    instagram: InstagramIcon,
+    facebook: FacebookIcon,
+    twitter: TwitterIcon,
+    reddit: RedditIcon,
+    threads: ThreadsIcon,
+    pinterest: PinterestIcon,
+  };
+
   const getPlatformIcon = (platformName: string) => {
-    const lower = platformName.toLowerCase();
-    if (lower.includes("youtube")) return <YoutubeIcon className="w-4 h-4" />;
-    if (lower.includes("tiktok")) return <TiktokIcon className="w-4 h-4" />;
-    if (lower.includes("instagram"))
-      return <InstagramIcon className="w-4 h-4" />;
-    if (lower.includes("facebook")) return <FacebookIcon className="w-4 h-4" />;
-    return null;
+    const Icon = BRAND_ICONS[platformName.toLowerCase()];
+    if (Icon) return <Icon className="w-4 h-4" />;
+    return <Film className="w-4 h-4 text-secondary" />;
   };
 
   return (
@@ -373,21 +384,10 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
                       autoPlay
                       className="w-full h-full object-contain bg-black"
                     />
-                  ) : metadata.platform === "youtube" ? (
-                    <div className="relative w-full h-full">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${metadata.id}?autoplay=1`}
-                        title={metadata.title}
-                        className="w-full h-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        referrerPolicy="strict-origin-when-cross-origin"
-                        allowFullScreen
-                      />
-                    </div>
                   ) : (
                     <div className="relative w-full h-full bg-black flex flex-col items-center justify-center p-3 text-center text-white space-y-2">
                       <p className="text-xs font-semibold">
-                        Situs ini membatasi pemutaran iframe
+                        Buka tautan media asli di tab baru
                       </p>
                       <a
                         href={metadata.url}

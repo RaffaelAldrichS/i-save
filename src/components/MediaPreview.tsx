@@ -3,7 +3,18 @@
 import React, { useState } from 'react';
 import { MediaMetadata } from '@/types/media';
 import { Download, Film, Music, User, Clock, AlertCircle, Loader2, Sparkles, CheckCircle2, ChevronLeft, ChevronRight, Image as ImageIcon, Layers } from 'lucide-react';
-import { YoutubeIcon, TiktokIcon, InstagramIcon, FacebookIcon } from './BrandIcons';
+import { YoutubeIcon, TiktokIcon, InstagramIcon, FacebookIcon, TwitterIcon, RedditIcon, ThreadsIcon, PinterestIcon } from './BrandIcons';
+
+const BRAND_ICONS: Record<string, React.FC<{ className?: string }>> = {
+  youtube: YoutubeIcon,
+  tiktok: TiktokIcon,
+  instagram: InstagramIcon,
+  facebook: FacebookIcon,
+  twitter: TwitterIcon,
+  reddit: RedditIcon,
+  threads: ThreadsIcon,
+  pinterest: PinterestIcon,
+};
 
 interface MediaPreviewProps {
   metadata: MediaMetadata | null;
@@ -21,12 +32,9 @@ export const MediaPreview: React.FC<MediaPreviewProps> = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   const getPlatformIcon = (platformName: string) => {
-    const lower = platformName.toLowerCase();
-    if (lower.includes('youtube')) return <YoutubeIcon className="w-3.5 h-3.5 text-red-600" />;
-    if (lower.includes('tiktok')) return <TiktokIcon className="w-3.5 h-3.5 text-text" />;
-    if (lower.includes('instagram')) return <InstagramIcon className="w-3.5 h-3.5 text-pink-600" />;
-    if (lower.includes('facebook')) return <FacebookIcon className="w-3.5 h-3.5 text-blue-600" />;
-    return null;
+    const Icon = BRAND_ICONS[platformName.toLowerCase()];
+    if (Icon) return <Icon className="w-3.5 h-3.5" />;
+    return <Film className="w-3.5 h-3.5 text-secondary" />;
   };
 
   if (error) {

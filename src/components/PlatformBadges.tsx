@@ -7,6 +7,7 @@ import {
   TwitterIcon,
   RedditIcon,
   ThreadsIcon,
+  PinterestIcon,
 } from './BrandIcons';
 
 export const PlatformBadges: React.FC = () => {
@@ -18,6 +19,7 @@ export const PlatformBadges: React.FC = () => {
     { name: 'Twitter/X', icon: TwitterIcon, color: 'text-slate-200' },
     { name: 'Reddit', icon: RedditIcon, color: 'text-orange-500' },
     { name: 'Threads', icon: ThreadsIcon, color: 'text-emerald-400' },
+    { name: 'Pinterest', icon: PinterestIcon, color: 'text-red-500' },
   ];
 
   return (
