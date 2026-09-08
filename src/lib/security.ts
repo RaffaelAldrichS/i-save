@@ -5,6 +5,27 @@ import { URL } from 'url';
  */
 export async function isSafeExternalUrl(urlStr: string): Promise<boolean> {
   try {
+    const rawLower = urlStr.toLowerCase();
+    if (
+      rawLower.includes('::ffff:') ||
+      rawLower.includes('127.0.0.1') ||
+      rawLower.includes('localhost') ||
+      rawLower.includes('169.254.')
+    ) {
+      // Direct string check for common internal patterns/mapped IPv6
+      if (
+        rawLower.includes('127.0.0.1') ||
+        rawLower.includes('localhost') ||
+        rawLower.includes('169.254.') ||
+        rawLower.includes('::ffff:127.') ||
+        rawLower.includes('::ffff:10.') ||
+        rawLower.includes('::ffff:192.168.') ||
+        rawLower.includes('::ffff:169.254.')
+      ) {
+        return false;
+      }
+    }
+
     const parsed = new URL(urlStr);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return false;
@@ -15,6 +36,26 @@ export async function isSafeExternalUrl(urlStr: string): Promise<boolean> {
     // Remove brackets if IPv6
     if (hostname.startsWith('[') && hostname.endsWith(']')) {
       hostname = hostname.slice(1, -1);
+    }
+
+    // Block localhost & loopback/internal hostname patterns before DNS lookup
+    if (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.local') ||
+      hostname === '0.0.0.0' ||
+      hostname === '::' ||
+      hostname === '::1' ||
+      hostname.startsWith('127.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('169.254.') ||
+      hostname.includes('::ffff:127.') ||
+      hostname.includes('::ffff:10.') ||
+      hostname.includes('::ffff:192.168.') ||
+      hostname.includes('::ffff:169.254.')
+    ) {
+      return false;
     }
 
     // Resolve DNS to get actual IP

@@ -20,6 +20,8 @@ export class RateLimiter {
 
   check(ip: string): RateLimitResult {
     const now = Date.now();
+    this.cleanupExpired(now);
+
     let record = this.limits.get(ip);
 
     if (!record || now > record.resetAt) {
@@ -48,6 +50,16 @@ export class RateLimiter {
       remaining: this.maxRequests - record.count,
       retryAfterSeconds: 0,
     };
+  }
+
+  private cleanupExpired(now: number): void {
+    if (this.limits.size > 100) {
+      for (const [ip, record] of this.limits.entries()) {
+        if (now > record.resetAt) {
+          this.limits.delete(ip);
+        }
+      }
+    }
   }
 
   reset(ip?: string): void {

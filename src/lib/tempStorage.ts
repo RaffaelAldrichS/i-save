@@ -68,8 +68,12 @@ export class TempStorage {
 
   getFile(id: string): TempFileInfo | null {
     try {
+      if (!id || typeof id !== 'string') return null;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) return null;
+
       const files = fs.readdirSync(this.storageDir);
-      const match = files.find((file) => file.startsWith(id));
+      const match = files.find((file) => file === id || file.startsWith(`${id}.`));
       if (!match) return null;
 
       const filePath = path.join(this.storageDir, match);
