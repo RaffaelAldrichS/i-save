@@ -5,7 +5,8 @@ import { isSafeExternalUrl, getMimeType } from '@/lib/security';
 import { progressTracker } from '@/lib/progressTracker';
 import { mapToAppError } from '@/lib/errors';
 import { jobStore } from '@/lib/jobStore';
-import { enqueueDownloadJob, processWorkerJob } from '@/lib/jobQueue';
+import { enqueueDownloadJob } from '@/lib/jobQueue';
+import { publishQStashWorkerJob } from '@/lib/qstash';
 import { verifySignedDownloadUrl } from '@/lib/signedUrl';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
@@ -135,53 +136,7 @@ export async function POST(req: NextRequest) {
 
     // Enqueue job to persistent store and independent worker queue
     await enqueueDownloadJob(activeJobId, url, safeFormatId);
-
-    // Run worker process in background asynchronously
-    const workerPromise = processWorkerJob(activeJobId);
-
-    // If client requested sync waiting or for legacy test suites, await short worker resolution
-    if (body.sync === true || process.env.NODE_ENV === 'test') {
-      await workerPromise;
-      const job = jobStore.getJob(activeJobId);
-      if (job && job.stage === 'failed' && job.error) {
-        logger.log({
-          requestId: activeJobId,
-          provider: providerName,
-          action: 'download',
-          status: 'failed',
-          durationMs: Date.now() - startTime,
-          errorCode: job.error.code,
-        });
-        metricsTracker.recordDownload(providerName, false, Date.now() - startTime, job.error.code);
-        return NextResponse.json(
-          {
-            success: false,
-            error: job.error.message,
-            code: job.error.code,
-            retryable: job.error.retryable,
-            errorDetails: job.error,
-          },
-          { status: 500 }
-        );
-      }
-      if (job && job.stage === 'completed' && job.downloadUrl) {
-        logger.log({
-          requestId: activeJobId,
-          provider: providerName,
-          action: 'download',
-          status: 'success',
-          durationMs: Date.now() - startTime,
-        });
-        metricsTracker.recordDownload(providerName, true, Date.now() - startTime);
-        return NextResponse.json({
-          success: true,
-          jobId: activeJobId,
-          status: 'completed',
-          downloadUrl: job.downloadUrl,
-          filename: job.filename,
-        });
-      }
-    }
+    await publishQStashWorkerJob(activeJobId, req.headers.get('host') || undefined);
 
     // Immediate Async Response (202 Accepted semantics)
     logger.log({
