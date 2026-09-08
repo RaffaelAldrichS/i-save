@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tempStorage } from '@/lib/tempStorage';
+import { mediaStorage } from '@/lib/storage';
 import { apiRateLimiter, getClientIp } from '@/lib/rateLimit';
 import { isSafeExternalUrl, getMimeType } from '@/lib/security';
 import { progressTracker } from '@/lib/progressTracker';
@@ -249,46 +250,68 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const fileInfo = tempStorage.getFile(safeFileId);
-  if (fileInfo && fs.existsSync(fileInfo.filePath)) {
-    const ext = path.extname(fileInfo.filePath).replace('.', '') || 'bin';
-    const nodeStream = fs.createReadStream(fileInfo.filePath);
+  // Development/Vitest local disk storage check ONLY when not in production
+  if (!mediaStorage.isProduction()) {
+    const fileInfo = tempStorage.getFile(safeFileId);
+    if (fileInfo && fs.existsSync(fileInfo.filePath)) {
+      const ext = path.extname(fileInfo.filePath).replace('.', '') || 'bin';
+      const nodeStream = fs.createReadStream(fileInfo.filePath);
 
-    const webStream = new ReadableStream({
-      start(controller) {
-        nodeStream.on('data', (chunk) => controller.enqueue(chunk));
-        nodeStream.on('end', () => controller.close());
-        nodeStream.on('error', (err) => controller.error(err));
-      },
-      cancel() {
-        nodeStream.destroy();
-      },
-    });
+      const webStream = new ReadableStream({
+        start(controller) {
+          nodeStream.on('data', (chunk) => controller.enqueue(chunk));
+          nodeStream.on('end', () => controller.close());
+          nodeStream.on('error', (err) => controller.error(err));
+        },
+        cancel() {
+          nodeStream.destroy();
+        },
+      });
 
-    return new NextResponse(webStream as unknown as BodyInit, {
-      status: 200,
-      headers: {
-        'Content-Type': getMimeType(ext),
-        'Content-Disposition': `attachment; filename="${fileInfo.filename.replace(/["\\\r\n]/g, '_')}"`,
-        'Content-Length': fileInfo.size.toString(),
-      },
-    });
-  }
-
-  // Object Storage (Vercel Blob) lookup from Redis job
-  const job = await jobStore.getJobAsync(safeFileId);
-  if (job && job.downloadUrl && job.downloadUrl.startsWith('https://')) {
-    const ext = path.extname(job.filename || 'file.mp4').replace('.', '') || 'mp4';
-    const res = await fetch(job.downloadUrl);
-    if (res.ok && res.body) {
-      return new NextResponse(res.body as unknown as BodyInit, {
+      return new NextResponse(webStream as unknown as BodyInit, {
         status: 200,
         headers: {
           'Content-Type': getMimeType(ext),
-          'Content-Disposition': `attachment; filename="${(job.filename || 'media.mp4').replace(/["\\\r\n]/g, '_')}"`,
+          'Content-Disposition': `attachment; filename="${fileInfo.filename.replace(/["\\\r\n]/g, '_')}"`,
+          'Content-Length': fileInfo.size.toString(),
         },
       });
     }
+  }
+
+  // Object Storage (Private Vercel Blob) lookup
+  try {
+    const job = await jobStore.getJobAsync(safeFileId);
+    const targetFilename = filename || job?.filename || 'media.mp4';
+    const blobStreamResult = await mediaStorage.getPrivateBlobStream(safeFileId, targetFilename);
+
+    if (blobStreamResult) {
+      const ext = path.extname(targetFilename).replace('.', '') || 'mp4';
+      const headers: Record<string, string> = {
+        'Content-Type': getMimeType(ext),
+        'Content-Disposition': `attachment; filename="${targetFilename.replace(/["\\\r\n]/g, '_')}"`,
+      };
+      if (blobStreamResult.size) {
+        headers['Content-Length'] = blobStreamResult.size.toString();
+      }
+
+      return new NextResponse(blobStreamResult.stream as unknown as BodyInit, {
+        status: 200,
+        headers,
+      });
+    }
+  } catch (err: unknown) {
+    const appErr = mapToAppError(err);
+    return NextResponse.json(
+      {
+        success: false,
+        error: appErr.message,
+        code: appErr.code,
+        retryable: appErr.retryable,
+        errorDetails: appErr,
+      },
+      { status: 500 }
+    );
   }
 
   const appErr = mapToAppError('File tidak ditemukan atau telah kadaluarsa');
