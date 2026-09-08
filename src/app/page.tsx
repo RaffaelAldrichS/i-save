@@ -19,6 +19,7 @@ type DownloaderState =
 export default function Home() {
   const [state, setState] = useState<DownloaderState>({ status: 'idle' });
   const [processingFormat, setProcessingFormat] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<{ percent: number; stageText: string } | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [lastDownloadUrl, setLastDownloadUrl] = useState<string | null>(null);
   const [lastFilename, setLastFilename] = useState<string | null>(null);
@@ -27,6 +28,7 @@ export default function Home() {
     setDownloadError(null);
     setLastDownloadUrl(null);
     setLastFilename(null);
+    setDownloadProgress(null);
     setState({ status: 'extracting' });
 
     try {
@@ -53,11 +55,31 @@ export default function Home() {
     setProcessingFormat(formatId);
     setDownloadError(null);
 
+    const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    setDownloadProgress({ percent: 5, stageText: 'Menyiapkan proses unduhan...' });
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const pRes = await fetch(`/api/download/progress?jobId=${jobId}`);
+        if (pRes.ok) {
+          const pJson = await pRes.json();
+          if (pJson.success && pJson.data) {
+            setDownloadProgress({
+              percent: pJson.data.percent || 5,
+              stageText: pJson.data.stageText || 'Memproses unduhan...',
+            });
+          }
+        }
+      } catch {
+        // Ignore polling error
+      }
+    }, 500);
+
     try {
       const res = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: state.metadata.url, formatId }),
+        body: JSON.stringify({ url: state.metadata.url, formatId, jobId }),
       });
 
       const json = await res.json();
@@ -65,6 +87,7 @@ export default function Home() {
         throw new Error(json.error || 'Gagal menyiapkan unduhan');
       }
 
+      setDownloadProgress({ percent: 100, stageText: 'Selesai!' });
       setLastDownloadUrl(json.downloadUrl);
       setLastFilename(json.filename || 'media.mp4');
 
@@ -78,7 +101,11 @@ export default function Home() {
       const msg = err instanceof Error ? err.message : 'Gagal memulai unduhan';
       setDownloadError(msg);
     } finally {
-      setProcessingFormat(null);
+      clearInterval(pollInterval);
+      setTimeout(() => {
+        setProcessingFormat(null);
+        setDownloadProgress(null);
+      }, 1000);
     }
   };
 
@@ -123,6 +150,7 @@ export default function Home() {
                 downloadError={downloadError}
                 onDownloadFormat={handleDownloadFormat}
                 isProcessingFormat={processingFormat}
+                downloadProgress={downloadProgress}
                 lastDownloadUrl={lastDownloadUrl}
                 lastFilename={lastFilename}
               />

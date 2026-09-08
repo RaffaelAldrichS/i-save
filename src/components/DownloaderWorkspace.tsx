@@ -65,6 +65,7 @@ interface DownloaderWorkspaceProps {
   downloadError?: string | null;
   onDownloadFormat: (formatId: string) => void;
   isProcessingFormat?: string | null;
+  downloadProgress?: { percent: number; stageText: string } | null;
   lastDownloadUrl?: string | null;
   lastFilename?: string | null;
 }
@@ -77,6 +78,7 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
   downloadError,
   onDownloadFormat,
   isProcessingFormat,
+  downloadProgress,
   lastDownloadUrl,
   lastFilename,
 }) => {
@@ -85,6 +87,10 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isBookmarkletOpen, setIsBookmarkletOpen] = useState(false);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isTrimmerActive, setIsTrimmerActive] = useState(false);
+  const [trimStart, setTrimStart] = useState("00:00");
+  const [trimEnd, setTrimEnd] = useState("00:30");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +143,28 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
           Tautan media sosial YouTube, TikTok, Instagram, atau Facebook
         </label>
         <div
-          className={`relative flex flex-col sm:flex-row items-stretch gap-2 bg-surface-soft p-2 rounded-2xl border ${error ? "border-error ring-1 ring-error/20" : "border-transparent"} focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const text = e.dataTransfer.getData("text");
+            if (text && text.trim()) {
+              setUrl(text.trim());
+              setPasteError(null);
+              onExtract(text.trim());
+            }
+          }}
+          className={`relative flex flex-col sm:flex-row items-stretch gap-2 bg-surface-soft p-2 rounded-2xl border transition-all ${
+            isDragging
+              ? "border-secondary ring-2 ring-secondary/30 bg-accent/10"
+              : error
+              ? "border-error ring-1 ring-error/20"
+              : "border-transparent"
+          } focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20`}
         >
           <div className="relative flex-1 flex items-center min-h-[52px]">
             <div className="pl-3.5 pr-2.5 text-text-muted select-none">
@@ -443,6 +470,27 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
               </div>
             </div>
 
+            {/* Real-time Download Progress Banner */}
+            {isProcessingFormat && (
+              <div className="w-full p-4 rounded-2xl bg-surface-soft border border-secondary/40 space-y-2.5 animate-fadeIn shadow-xs">
+                <div className="flex items-center justify-between text-xs font-bold text-primary">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-4 h-4 animate-spin text-secondary" />
+                    <span>{downloadProgress?.stageText || "Memproses unduhan..."}</span>
+                  </span>
+                  <span className="font-mono text-secondary">
+                    {downloadProgress?.percent || 0}%
+                  </span>
+                </div>
+                <div className="w-full h-2.5 bg-surface border border-border rounded-full overflow-hidden p-0.5">
+                  <div
+                    className="h-full bg-secondary rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${downloadProgress?.percent || 5}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Download Error Banner */}
             {downloadError && (
               <div
@@ -459,19 +507,92 @@ export const DownloaderWorkspace: React.FC<DownloaderWorkspaceProps> = ({
               </div>
             )}
 
-            {/* Format Selection Grid */}
-            <div className="space-y-3">
-              <h3 className="font-bold text-xs text-text-muted uppercase tracking-wider">
-                Pilihan Format Unduhan
-              </h3>
+            {/* Format Selection Grid & Trimmer Tool */}
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-bold text-xs text-text-muted uppercase tracking-wider">
+                  Pilihan Format Unduhan
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTrimmerActive(!isTrimmerActive)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                    isTrimmerActive
+                      ? "bg-accent border-secondary text-primary shadow-xs"
+                      : "bg-surface-soft border-border text-text-muted hover:text-text"
+                  }`}
+                >
+                  <Music className="w-3.5 h-3.5" />
+                  <span>{isTrimmerActive ? "Trimmer Aktif" : "Pemotong Audio / Ringtone"}</span>
+                </button>
+              </div>
+
+              {/* Trimmer Inputs Panel */}
+              {isTrimmerActive && (
+                <div className="p-4 rounded-2xl bg-surface-soft border border-secondary/30 space-y-3 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-primary flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-secondary" />
+                      Atur Durasi Potong Audio (Menit:Detik)
+                    </p>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { setTrimStart("00:00"); setTrimEnd("00:30"); }}
+                        className="px-2 py-0.5 rounded text-[11px] font-semibold bg-surface border border-border text-text hover:bg-accent/20"
+                      >
+                        30s Ringtone
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setTrimStart("00:00"); setTrimEnd("00:15"); }}
+                        className="px-2 py-0.5 rounded text-[11px] font-semibold bg-surface border border-border text-text hover:bg-accent/20"
+                      >
+                        15s Klip
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="trim-start-input" className="text-xs font-semibold text-text-muted">Mulai:</label>
+                      <input
+                        id="trim-start-input"
+                        type="text"
+                        value={trimStart}
+                        onChange={(e) => setTrimStart(e.target.value)}
+                        placeholder="00:00"
+                        aria-label="Waktu mulai potong audio"
+                        className="w-20 px-2.5 py-1 rounded-lg bg-surface border border-border text-xs font-mono font-bold text-text focus:outline-none focus:border-secondary"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="trim-end-input" className="text-xs font-semibold text-text-muted">Selesai:</label>
+                      <input
+                        id="trim-end-input"
+                        type="text"
+                        value={trimEnd}
+                        onChange={(e) => setTrimEnd(e.target.value)}
+                        placeholder="00:30"
+                        aria-label="Waktu selesai potong audio"
+                        className="w-20 px-2.5 py-1 rounded-lg bg-surface border border-border text-xs font-mono font-bold text-text focus:outline-none focus:border-secondary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {metadata.formats.map((fmt) => {
-                  const isProcessing = isProcessingFormat === fmt.id;
+                  const targetFormatId = isTrimmerActive
+                    ? `${fmt.id}_trim_${trimStart}_${trimEnd}`
+                    : fmt.id;
+                  const isProcessing = isProcessingFormat === fmt.id || isProcessingFormat === targetFormatId;
                   return (
                     <button
                       key={fmt.id}
-                      onClick={() => onDownloadFormat(fmt.id)}
+                      onClick={() => onDownloadFormat(targetFormatId)}
                       disabled={Boolean(isProcessingFormat)}
                       aria-label={`Unduh ${fmt.quality} ${fmt.ext}`}
                       className="w-full flex items-center justify-between p-3.5 rounded-xl border border-border bg-surface hover:bg-surface-soft hover:border-secondary/40 transition-all text-left cursor-pointer group disabled:opacity-60 disabled:cursor-wait"
