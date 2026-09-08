@@ -1,137 +1,28 @@
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { v4 as uuidv4 } from 'uuid';
+import { mediaStorage, StoredMediaFile } from './storage';
 
-export interface TempFileInfo {
-  id: string;
-  filename: string;
-  filePath: string;
-  size: number;
-  createdAt: Date;
-}
+export type TempFileInfo = StoredMediaFile;
 
 export class TempStorage {
-  private storageDir: string;
-
-  constructor(dirName: string = 'isave-temp-downloads') {
-    this.storageDir = path.join(os.tmpdir(), dirName);
-    if (!fs.existsSync(this.storageDir)) {
-      fs.mkdirSync(this.storageDir, { recursive: true });
-    }
-  }
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_dirName?: string) {}
   async saveFile(filename: string, buffer: Buffer): Promise<TempFileInfo> {
-    const id = uuidv4();
-    const ext = path.extname(filename);
-    const safeFilename = `${id}${ext}`;
-    const filePath = path.join(this.storageDir, safeFilename);
-
-    await fs.promises.writeFile(filePath, buffer);
-
-    return {
-      id,
-      filename,
-      filePath,
-      size: buffer.length,
-      createdAt: new Date(),
-    };
+    return await mediaStorage.saveFile(filename, buffer);
   }
 
   async registerFileFromPath(originalPath: string, filename: string): Promise<TempFileInfo> {
-    const id = uuidv4();
-    const ext = path.extname(filename) || path.extname(originalPath);
-    const safeFilename = `${id}${ext}`;
-    const targetPath = path.join(this.storageDir, safeFilename);
-
-    try {
-      await fs.promises.rename(originalPath, targetPath);
-    } catch {
-      await fs.promises.copyFile(originalPath, targetPath);
-      try {
-        await fs.promises.unlink(originalPath);
-      } catch {
-        // Ignore unlink error
-      }
-    }
-
-    const stat = await fs.promises.stat(targetPath);
-
-    return {
-      id,
-      filename,
-      filePath: targetPath,
-      size: stat.size,
-      createdAt: stat.birthtime || new Date(),
-    };
+    return await mediaStorage.registerFileFromPath(originalPath, filename);
   }
 
   getFile(id: string): TempFileInfo | null {
-    try {
-      if (!id || typeof id !== 'string') return null;
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(id)) return null;
-
-      const files = fs.readdirSync(this.storageDir);
-      const match = files.find((file) => file === id || file.startsWith(`${id}.`));
-      if (!match) return null;
-
-      const filePath = path.join(this.storageDir, match);
-      const stat = fs.statSync(filePath);
-
-      return {
-        id,
-        filename: match,
-        filePath,
-        size: stat.size,
-        createdAt: stat.birthtime,
-      };
-    } catch {
-      return null;
-    }
+    return mediaStorage.getFile(id);
   }
 
   cleanupExpired(ttlMs: number = 15 * 60 * 1000): void {
-    try {
-      const now = Date.now();
-
-      // 1. Cleanup expired temp files
-      if (fs.existsSync(this.storageDir)) {
-        const files = fs.readdirSync(this.storageDir);
-        for (const file of files) {
-          const filePath = path.join(this.storageDir, file);
-          const stat = fs.statSync(filePath);
-          if (now - stat.mtimeMs > ttlMs) {
-            fs.unlinkSync(filePath);
-          }
-        }
-      }
-
-      // 2. Cleanup expired job subdirectories in isave-jobs
-      const jobsDir = path.join(os.tmpdir(), 'isave-jobs');
-      if (fs.existsSync(jobsDir)) {
-        const jobFolders = fs.readdirSync(jobsDir);
-        for (const folder of jobFolders) {
-          const folderPath = path.join(jobsDir, folder);
-          const stat = fs.statSync(folderPath);
-          if (now - stat.mtimeMs > ttlMs) {
-            fs.rmSync(folderPath, { recursive: true, force: true });
-          }
-        }
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
+    mediaStorage.cleanupExpired(ttlMs);
   }
 
   cleanupAll(): void {
-    try {
-      if (fs.existsSync(this.storageDir)) {
-        fs.rmSync(this.storageDir, { recursive: true, force: true });
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
+    mediaStorage.cleanupAll();
   }
 }
 
