@@ -1,6 +1,10 @@
 import { MediaExtractor } from './types';
 import { MediaMetadata, MediaFormat } from '@/types/media';
 import { generateAudioFormats } from '../audioOptions';
+import { exec } from 'child_process';
+import util from 'util';
+
+const execPromise = util.promisify(exec);
 
 export class InstagramExtractor implements MediaExtractor {
   name = 'Instagram Extractor';
@@ -35,45 +39,125 @@ export class InstagramExtractor implements MediaExtractor {
     let title = isStory
       ? `Instagram Story (${shortcode})`
       : imgIndex
-      ? `Instagram Post (${shortcode}) - Slide ${imgIndex}`
-      : `Instagram Post (${shortcode})`;
+      ? `Postingan Instagram (${shortcode}) - Slide ${imgIndex}`
+      : `Postingan Instagram (${shortcode})`;
     let author = '@instagram';
-    let thumbnail = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%230E2E1A"/><text x="50%" y="50%" fill="%2384E039" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Instagram Media</text></svg>';
+    let thumbnail = `https://www.instagram.com/p/${shortcode}/media/?size=l`;
+    let isVideo = url.includes('/reel/') || url.includes('/reels/') || url.includes('/tv/');
+    let slideImages: string[] = [];
+    let formats: MediaFormat[] = [];
 
     try {
-      // Try oEmbed API for Instagram
-      const oembedUrl = `https://api.instagram.com/oembed/?url=https://www.instagram.com/p/${shortcode}/`;
-      const res = await fetch(oembedUrl);
+      const { stdout, stderr } = await execPromise(
+        `yt-dlp --dump-single-json --no-playlist "${url}"`,
+        { maxBuffer: 20 * 1024 * 1024, timeout: 15000 }
+      ).catch((err) => ({ stdout: err.stdout || '', stderr: err.stderr || '' }));
 
-      if (res.ok) {
-        const data = await res.json();
-        title = data.title || title;
-        author = data.author_name ? `@${data.author_name}` : author;
-        if (data.thumbnail_url) {
-          thumbnail = data.thumbnail_url;
+      let parsed: {
+        uploader?: string;
+        channel?: string;
+        description?: string;
+        title?: string;
+        thumbnail?: string;
+        formats?: unknown[];
+      } | null = null;
+      if (stdout && stdout.trim().startsWith('{')) {
+        try {
+          parsed = JSON.parse(stdout);
+        } catch {
+          // Ignore json parse error
+        }
+      }
+
+      if (parsed) {
+        if (parsed.uploader || parsed.channel) {
+          const uploaderName = parsed.channel || parsed.uploader || '';
+          author = uploaderName.startsWith('@') ? uploaderName : `@${uploaderName}`;
+        }
+        if (parsed.description && parsed.description.trim()) {
+          const cleanDesc = parsed.description.trim().replace(/[\r\n]+/g, ' ');
+          title = cleanDesc.length > 70 ? `${cleanDesc.substring(0, 67)}...` : cleanDesc;
+        } else if (parsed.title && !parsed.title.toLowerCase().includes('post by') && !parsed.title.toLowerCase().includes('video by')) {
+          title = parsed.title;
+        }
+
+        if (parsed.thumbnail) {
+          thumbnail = parsed.thumbnail;
+        }
+
+        if (parsed.formats && Array.isArray(parsed.formats) && parsed.formats.length > 0) {
+          isVideo = true;
+        }
+      }
+
+      if (!isVideo && stderr) {
+        const slideShortcodes = [...stderr.matchAll(/\[Instagram\]\s+([a-zA-Z0-9_-]+):/g)].map((m) => m[1]);
+        if (slideShortcodes.length > 0) {
+          slideImages = slideShortcodes.map((code) => `https://www.instagram.com/p/${code}/media/?size=l`);
         }
       }
     } catch {
-      // Fallback if Instagram oEmbed requires auth token
+      // Fallback if yt-dlp unavailable
     }
 
-    const formats: MediaFormat[] = [
-      {
-        id: `ig-${shortcode}-hd`,
-        quality: isStory ? 'Story Video / Media (MP4)' : 'HD Video (MP4)',
-        ext: 'mp4',
-        requiresMerge: false,
-        type: 'video',
-      },
-      {
-        id: `ig-${shortcode}-img`,
-        quality: 'Foto High-Res (JPG)',
-        ext: 'jpg',
-        requiresMerge: false,
-        type: 'image',
-      },
-      ...generateAudioFormats(`ig-${shortcode}`),
-    ];
+    if (slideImages.length === 0) {
+      slideImages = [thumbnail];
+    } else {
+      thumbnail = slideImages[0];
+    }
+
+    if (isVideo || isStory) {
+      formats = [
+        {
+          id: `ig-${shortcode}-hd`,
+          quality: isStory ? 'Story Video (MP4)' : 'Video HD (MP4)',
+          ext: 'mp4',
+          requiresMerge: false,
+          type: 'video',
+        },
+        {
+          id: `ig-${shortcode}-img`,
+          quality: 'Cover / Thumbnail (JPG)',
+          ext: 'jpg',
+          requiresMerge: false,
+          type: 'image',
+        },
+        ...generateAudioFormats(`ig-${shortcode}`),
+      ];
+    } else {
+      formats = [
+        {
+          id: `ig-${shortcode}-img`,
+          quality: 'Foto High-Res (JPG)',
+          ext: 'jpg',
+          requiresMerge: false,
+          type: 'image',
+          images: slideImages,
+        },
+      ];
+
+      if (slideImages.length > 1) {
+        formats.push({
+          id: `ig-${shortcode}-zip`,
+          quality: `Download Semua Slide (${slideImages.length} Slide - ZIP)`,
+          ext: 'zip',
+          requiresMerge: false,
+          type: 'gallery',
+          images: slideImages,
+        });
+
+        slideImages.forEach((imgUrl, idx) => {
+          formats.push({
+            id: `ig-${shortcode}-slide-${idx + 1}`,
+            quality: `Slide ${idx + 1} (JPG)`,
+            ext: 'jpg',
+            requiresMerge: false,
+            type: 'image',
+            url: imgUrl,
+          });
+        });
+      }
+    }
 
     return {
       id: shortcode,
@@ -82,7 +166,9 @@ export class InstagramExtractor implements MediaExtractor {
       title,
       thumbnail,
       author,
+      images: slideImages,
       formats,
     };
   }
 }
+

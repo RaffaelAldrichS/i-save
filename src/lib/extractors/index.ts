@@ -28,6 +28,19 @@ export class ExtractorManager {
     }
     return extractor.extract(url);
   }
+
+  async extractBatch(urls: string[]): Promise<MediaMetadata[]> {
+    const results: MediaMetadata[] = [];
+    for (const url of urls) {
+      try {
+        const meta = await this.extract(url);
+        results.push(meta);
+      } catch {
+        // Skip failed links in batch
+      }
+    }
+    return results;
+  }
 }
 
 export const extractorManager = new ExtractorManager();

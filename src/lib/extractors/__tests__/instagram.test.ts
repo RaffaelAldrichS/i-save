@@ -61,15 +61,17 @@ describe('InstagramExtractor Engine', () => {
 
       const hdFormat = metadata.formats.find((f) => f.quality.includes('HD') || f.ext === 'mp4');
       expect(hdFormat).toBeDefined();
-    });
+    }, 30000);
 
-    it('should extract metadata for feed post with img_index', async () => {
+    it('should strictly filter photo post formats (no MP4 or MP3 for photo feed)', async () => {
       const metadata = await extractor.extract('https://www.instagram.com/p/Dc-ecCPlDOL/?img_index=1');
 
       expect(metadata.id).toBe('Dc-ecCPlDOL');
-      expect(metadata.title).toContain('Slide 1');
       expect(metadata.formats.some((f) => f.type === 'image')).toBe(true);
-    });
+      // Photo post should not contain MP4 or MP3 formats
+      expect(metadata.formats.some((f) => f.ext === 'mp4')).toBe(false);
+      expect(metadata.formats.some((f) => f.ext === 'mp3')).toBe(false);
+    }, 30000);
 
     it('should extract metadata for story URL', async () => {
       const metadata = await extractor.extract('https://www.instagram.com/stories/irwandiferry/');
@@ -77,7 +79,7 @@ describe('InstagramExtractor Engine', () => {
       expect(metadata.id).toBe('irwandiferry');
       expect(metadata.title).toContain('Story');
       expect(metadata.formats.some((f) => f.quality.includes('Story'))).toBe(true);
-    });
+    }, 30000);
 
     it('should not have example.com URLs in formats', async () => {
       const metadata = await extractor.extract('https://www.instagram.com/reel/C123456789/');
@@ -87,7 +89,7 @@ describe('InstagramExtractor Engine', () => {
           expect(fmt.url).not.toContain('example.com');
         }
       }
-    });
+    }, 30000);
 
     it('should throw error for invalid Instagram URL without shortcode', async () => {
       await expect(extractor.extract('https://www.instagram.com/invalid_page/')).rejects.toThrow(

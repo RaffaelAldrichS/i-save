@@ -1,9 +1,13 @@
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import util from 'util';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
+import ffmpegPath from 'ffmpeg-static';
 import { buildCarouselZip, ImageFile } from './carouselZip';
+import { progressTracker } from './progressTracker';
 
 const execFilePromise = util.promisify(execFile);
 
@@ -22,7 +26,8 @@ export function parseTrimOption(formatId: string): { startTime: string; endTime:
 
 export async function processMediaDownload(
   url: string,
-  formatId: string
+  formatId: string,
+  jobId?: string
 ): Promise<DownloadResult> {
   const isAudio = formatId.includes('audio') || formatId.includes('mp3');
   const isZip = formatId.includes('zip') || formatId.includes('carousel');
@@ -115,19 +120,14 @@ export async function processMediaDownload(
 
             if (mediaRes.ok && mediaRes.body) {
               const fileStream = fs.createWriteStream(tempFilePath);
-              const reader = mediaRes.body.getReader();
-              let bytesWritten = 0;
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                if (value) {
-                  fileStream.write(value);
-                  bytesWritten += value.length;
-                }
+              try {
+                await pipeline(Readable.fromWeb(mediaRes.body as unknown as import('stream/web').ReadableStream), fileStream);
+              } catch {
+                fileStream.destroy();
               }
-              fileStream.end();
-              
-              if (bytesWritten > 1000) {
+
+              const stat = fs.existsSync(tempFilePath) ? fs.statSync(tempFilePath) : null;
+              if (stat && stat.size > 1000) {
                 const titleSlug = (json.data.title || 'tiktok-media')
                   .slice(0, 30)
                   .replace(/[^a-zA-Z0-9]/g, '_');
@@ -149,6 +149,105 @@ export async function processMediaDownload(
     }
   }
 
+  // 1.b Instagram Photo / Carousel / Slide Handler
+  if (/(?:instagram\.com|instagr\.am)/i.test(url) && (isImage || isZip || formatId.includes('slide-') || formatId.includes('zip'))) {
+    try {
+      const matchCode = url.match(/(?:p|reel|reels|tv|share\/p|share\/reel)\/([a-zA-Z0-9_-]+)/i);
+      const shortcode = matchCode ? matchCode[1] : null;
+
+      if (shortcode) {
+        if (isZip || formatId.includes('zip')) {
+          const { stderr } = await execFilePromise('yt-dlp', ['--dump-single-json', '--no-playlist', url], { timeout: 15000 }).catch((e: unknown) => {
+            const errObj = e as { stderr?: string };
+            return { stderr: errObj.stderr || '' };
+          });
+          const slideCodes = [...stderr.matchAll(/\[Instagram\]\s+([a-zA-Z0-9_-]+):/g)].map((m) => m[1]);
+          const targetCodes = slideCodes.length > 0 ? slideCodes : [shortcode];
+
+          const imageFiles: ImageFile[] = [];
+          for (let i = 0; i < targetCodes.length; i++) {
+            const code = targetCodes[i];
+            const imgRes = await fetch(`https://www.instagram.com/p/${code}/media/?size=l`, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
+            });
+            if (imgRes.ok) {
+              const arrBuf = await imgRes.arrayBuffer();
+              imageFiles.push({
+                filename: `slide_${i + 1}.jpg`,
+                buffer: Buffer.from(arrBuf),
+              });
+            }
+          }
+
+          if (imageFiles.length > 0) {
+            const zipBuffer = await buildCarouselZip(imageFiles);
+            await fs.promises.writeFile(tempFilePath, zipBuffer);
+            return {
+              filePath: tempFilePath,
+              get buffer() {
+                return fs.readFileSync(tempFilePath);
+              },
+              filename: `instagram_${shortcode}_slides.zip`,
+              ext: 'zip',
+            };
+          }
+        } else if (formatId.includes('slide-')) {
+          const matchIndex = formatId.match(/slide-(\d+)/);
+          const slideNum = matchIndex ? parseInt(matchIndex[1], 10) : 1;
+
+          const { stderr } = await execFilePromise('yt-dlp', ['--dump-single-json', '--no-playlist', url], { timeout: 15000 }).catch((e: unknown) => {
+            const errObj = e as { stderr?: string };
+            return { stderr: errObj.stderr || '' };
+          });
+          const slideCodes = [...stderr.matchAll(/\[Instagram\]\s+([a-zA-Z0-9_-]+):/g)].map((m) => m[1]);
+          const targetCode = slideCodes[slideNum - 1] || shortcode;
+
+          const imgRes = await fetch(`https://www.instagram.com/p/${targetCode}/media/?size=l`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+          });
+          if (imgRes.ok) {
+            const arrBuf = await imgRes.arrayBuffer();
+            const buffer = Buffer.from(arrBuf);
+            await fs.promises.writeFile(tempFilePath, buffer);
+            return {
+              filePath: tempFilePath,
+              get buffer() {
+                return fs.readFileSync(tempFilePath);
+              },
+              filename: `instagram_${shortcode}_slide_${slideNum}.jpg`,
+              ext: 'jpg',
+            };
+          }
+        } else if (isImage || formatId.includes('img')) {
+          const imgRes = await fetch(`https://www.instagram.com/p/${shortcode}/media/?size=l`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+          });
+          if (imgRes.ok) {
+            const arrBuf = await imgRes.arrayBuffer();
+            const buffer = Buffer.from(arrBuf);
+            await fs.promises.writeFile(tempFilePath, buffer);
+            return {
+              filePath: tempFilePath,
+              get buffer() {
+                return fs.readFileSync(tempFilePath);
+              },
+              filename: `instagram_${shortcode}.jpg`,
+              ext: 'jpg',
+            };
+          }
+        }
+      }
+    } catch {
+      // Fallback to yt-dlp
+    }
+  }
+
   // 2. yt-dlp Handler for YouTube, Instagram, TikTok fallback
   try {
     const ytDlpArgs = [
@@ -163,21 +262,68 @@ export async function processMediaDownload(
       '200m',
     ];
 
-    if (isAudio) {
+    const isSub = formatId.includes('sub');
+    if (isSub) {
+      ytDlpArgs.push(
+        '--write-subs',
+        '--write-auto-subs',
+        '--sub-lang',
+        'id,en,ind,auto',
+        '--skip-download',
+        '--convert-subs',
+        'srt'
+      );
+    } else if (isAudio) {
       const bitrateMatch = formatId.match(/(320|192|128)kbps/);
       const quality = bitrateMatch ? `${bitrateMatch[1]}k` : '320k';
       ytDlpArgs.push('-x', '--audio-format', 'mp3', '--audio-quality', quality);
     } else {
-      if (formatId && formatId !== 'best' && formatId !== 'mp4') {
+      const heightMatch = formatId.match(/(\d{3,4})p/);
+      if (heightMatch) {
+        const height = heightMatch[1];
+        ytDlpArgs.push('-f', `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best`);
+      } else if (formatId && formatId !== 'best' && formatId !== 'mp4') {
         ytDlpArgs.push('-f', `${formatId}/bestvideo+bestaudio/best`);
       } else {
-        ytDlpArgs.push('-f', '18/22/b[height<=720]/b/bestvideo+bestaudio/best');
+        ytDlpArgs.push('-f', 'bestvideo[height<=720]+bestaudio/best');
       }
+
+      ytDlpArgs.push('--merge-output-format', 'mp4', '--remux-video', 'mp4');
     }
 
     ytDlpArgs.push('-o', `${tempFilePath}_%(title)s.%(ext)s`, url);
 
-    await execFilePromise('yt-dlp', ytDlpArgs);
+    if (jobId) {
+      progressTracker.updateProgress(jobId, 10, 'downloading', 'Mengunduh stream video...');
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('yt-dlp', ytDlpArgs);
+
+      child.stdout?.on('data', (data: Buffer) => {
+        const text = data.toString();
+        if (jobId) {
+          const match = text.match(/\[download\]\s+(\d+\.\d+)%/);
+          if (match) {
+            const p = parseFloat(match[1]);
+            progressTracker.updateProgress(jobId, Math.round(p * 0.8), 'downloading', `Mengunduh media (${Math.round(p)}%)...`);
+          } else if (text.includes('[Merger]') || text.includes('[ffmpeg]')) {
+            progressTracker.updateProgress(jobId, 85, 'merging', 'Penggabungan Video & Audio MP4...');
+          }
+        }
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`Proses yt-dlp selesai dengan kode ${code}`));
+      });
+
+      child.on('error', (err) => reject(err));
+    });
+
+    if (jobId) {
+      progressTracker.updateProgress(jobId, 95, 'merging', 'Menyiapkan file unduhan...');
+    }
 
     // Look for exact file or any file created with prefix
     let actualFilePath = tempFilePath;
@@ -198,10 +344,66 @@ export async function processMediaDownload(
 
     if (fs.existsSync(/*turbopackIgnore: true*/ actualFilePath)) {
       const stat = fs.statSync(/*turbopackIgnore: true*/ actualFilePath);
-      const actualExt = path.extname(actualFilePath).replace('.', '') || ext;
 
       if (stat.size > 1000) {
-        const finalPath = actualFilePath;
+        let finalPath = actualFilePath;
+        let actualExt = path.extname(actualFilePath).replace('.', '') || ext;
+
+        // 1. Handle FFmpeg Video/Audio Trimming if formatId contains trim option
+        const trimInfo = parseTrimOption(formatId);
+        if (trimInfo) {
+          const trimmedPath = path.join(tempDir, `${filePrefix}_trimmed.${actualExt}`);
+          try {
+            const bin = ffmpegPath || 'ffmpeg';
+            await execFilePromise(bin, [
+              '-ss', trimInfo.startTime,
+              '-to', trimInfo.endTime,
+              '-i', finalPath,
+              '-c', 'copy',
+              '-y',
+              trimmedPath,
+            ]).catch(async () => {
+              await execFilePromise(bin, [
+                '-ss', trimInfo.startTime,
+                '-to', trimInfo.endTime,
+                '-i', finalPath,
+                '-y',
+                trimmedPath,
+              ]);
+            });
+
+            if (fs.existsSync(trimmedPath) && fs.statSync(trimmedPath).size > 500) {
+              finalPath = trimmedPath;
+            }
+          } catch {
+            // Fallback to untrimmed file
+          }
+        }
+
+        // 2. Handle Audio Bitrate Transcoding
+        if (isAudio) {
+          const bitrateMatch = formatId.match(/(320|192|128)kbps/);
+          if (bitrateMatch) {
+            const targetBitrate = bitrateMatch[1];
+            const transcodedPath = path.join(tempDir, `${filePrefix}_${targetBitrate}k.mp3`);
+            try {
+              const bin = ffmpegPath || 'ffmpeg';
+              await execFilePromise(bin, [
+                '-i', finalPath,
+                '-b:a', `${targetBitrate}k`,
+                '-y',
+                transcodedPath,
+              ]);
+              if (fs.existsSync(transcodedPath) && fs.statSync(transcodedPath).size > 500) {
+                finalPath = transcodedPath;
+                actualExt = 'mp3';
+              }
+            } catch {
+              // Fallback to original audio
+            }
+          }
+        }
+
         // Clean title
         const cleanTitle = originalTitle.replace(/[^a-zA-Z0-9_\-\s]/g, '_').substring(0, 50);
         return {
