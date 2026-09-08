@@ -82,6 +82,20 @@ export function mapToAppError(err: unknown): AppError {
     };
   }
 
+  if (
+    lower.includes('enoent') ||
+    lower.includes('spawn') ||
+    lower.includes('missing executable') ||
+    lower.includes('not found') && lower.includes('yt-dlp')
+  ) {
+    return {
+      code: 'INTERNAL_ERROR',
+      message: 'Komponen runtime (yt-dlp) tidak ditemukan atau gagal dijalankan di server.',
+      retryable: true,
+      providerError: rawMessage,
+    };
+  }
+
   if (lower.includes('privat') || lower.includes('private') || lower.includes('diubah ke privat')) {
     return {
       code: 'PRIVATE',

@@ -1,6 +1,8 @@
 import { Provider } from './types';
 import { MediaResult, MediaItem, ContentType } from '@/types/media';
 import { generateAudioFormats } from '../audioOptions';
+import { getYtDlpExecutablePath } from '../ytDlpPath';
+import { AppCustomError } from '../errors';
 import { execFile } from 'child_process';
 import util from 'util';
 
@@ -43,8 +45,9 @@ export class YouTubeProvider implements Provider {
 
     // 1. Try real format discovery via yt-dlp --dump-single-json
     try {
+      const ytDlpBin = await getYtDlpExecutablePath();
       const { stdout } = await execFilePromise(
-        'yt-dlp',
+        ytDlpBin,
         ['--dump-single-json', '--no-playlist', url],
         { maxBuffer: 20 * 1024 * 1024, timeout: 15000 }
       );
@@ -70,8 +73,17 @@ export class YouTubeProvider implements Provider {
           discoveredHeights = Array.from(heights).sort((a, b) => b - a);
         }
       }
-    } catch {
-      // Fallback to oEmbed if yt-dlp fails or is unavailable
+    } catch (err: unknown) {
+      const errStr = String(err || '').toLowerCase();
+      if (errStr.includes('enoent') || errStr.includes('spawn')) {
+        throw new AppCustomError(
+          'INTERNAL_ERROR',
+          `Komponen runtime yt-dlp tidak ditemukan atau gagal dijalankan: ${err instanceof Error ? err.message : String(err)}`,
+          true,
+          errStr
+        );
+      }
+      // Fallback to oEmbed if yt-dlp fails due to non-ENOENT (e.g. network/extractor issue)
     }
 
     // 2. If real format discovery failed, fall back to oEmbed metadata lookup for metadata only

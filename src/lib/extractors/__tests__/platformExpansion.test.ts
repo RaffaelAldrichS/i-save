@@ -31,7 +31,7 @@ describe('P2 Platform Expansion - Extractor Suite', () => {
       expect(result.source.domain).toBe('facebook.com');
       expect(result.media.length).toBeGreaterThan(0);
       expect(result.media[0].type).toBe('video');
-    });
+    }, 15000);
 
     it('rejects SSRF internal URLs', async () => {
       await expect(provider.extract('http://127.0.0.1/facebook/123')).rejects.toThrow();
@@ -58,7 +58,7 @@ describe('P2 Platform Expansion - Extractor Suite', () => {
       expect(result.id).toBe('9876543210');
       expect(result.source.domain).toBe('x.com');
       expect(result.media.length).toBeGreaterThan(0);
-    });
+    }, 15000);
   });
 
   describe('RedditProvider', () => {

@@ -9,6 +9,7 @@ import ffmpegPath from 'ffmpeg-static';
 import { buildCarouselZip, ImageFile } from './carouselZip';
 import { progressTracker } from './progressTracker';
 import { isSafeExternalUrl } from './security';
+import { getYtDlpExecutablePath } from './ytDlpPath';
 
 const execFilePromise = util.promisify(execFile);
 
@@ -167,7 +168,8 @@ export async function processMediaDownload(
 
       if (shortcode) {
         if (isZip || formatId.includes('zip')) {
-          const { stderr } = await execFilePromise('yt-dlp', ['--dump-single-json', '--no-playlist', url], { timeout: 15000 }).catch((e: unknown) => {
+          const ytDlpBin = await getYtDlpExecutablePath();
+          const { stderr } = await execFilePromise(ytDlpBin, ['--dump-single-json', '--no-playlist', url], { timeout: 15000 }).catch((e: unknown) => {
             const errObj = e as { stderr?: string };
             return { stderr: errObj.stderr || '' };
           });
@@ -207,7 +209,8 @@ export async function processMediaDownload(
           const matchIndex = formatId.match(/slide-(\d+)/);
           const slideNum = matchIndex ? parseInt(matchIndex[1], 10) : 1;
 
-          const { stderr } = await execFilePromise('yt-dlp', ['--dump-single-json', '--no-playlist', url], { timeout: 15000 }).catch((e: unknown) => {
+          const ytDlpBin = await getYtDlpExecutablePath();
+          const { stderr } = await execFilePromise(ytDlpBin, ['--dump-single-json', '--no-playlist', url], { timeout: 15000 }).catch((e: unknown) => {
             const errObj = e as { stderr?: string };
             return { stderr: errObj.stderr || '' };
           });
@@ -314,9 +317,11 @@ export async function processMediaDownload(
       progressTracker.updateProgress(jobId, 10, 'downloading', 'Mengunduh stream video...');
     }
 
+    const ytDlpBin = await getYtDlpExecutablePath();
+
     await new Promise<void>((resolve, reject) => {
       let isSettled = false;
-      const child = spawn('yt-dlp', ytDlpArgs, { cwd: jobDir });
+      const child = spawn(ytDlpBin, ytDlpArgs, { cwd: jobDir });
 
       const timer = setTimeout(() => {
         if (!isSettled) {

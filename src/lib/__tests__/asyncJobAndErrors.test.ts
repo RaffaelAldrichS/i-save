@@ -40,6 +40,16 @@ describe('P1.4 & P1.5 — Async Download Architecture & Structured Errors', () =
       expect(err.retryable).toBe(true);
     });
 
+    it('maps missing executable ENOENT errors to INTERNAL_ERROR, never PRIVATE', () => {
+      const err1 = mapToAppError('spawn yt-dlp ENOENT');
+      expect(err1.code).toBe('INTERNAL_ERROR');
+      expect(err1.code).not.toBe('PRIVATE');
+
+      const err2 = mapToAppError('yt-dlp tidak ditemukan pada server (ENOENT)');
+      expect(err2.code).toBe('INTERNAL_ERROR');
+      expect(err2.code).not.toBe('PRIVATE');
+    });
+
     it('preserves AppCustomError instances without re-mapping', () => {
       const custom = new AppCustomError('PRIVATE', 'Custom private message', false, 'provider_403');
       const mapped = mapToAppError(custom);

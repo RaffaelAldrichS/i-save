@@ -1,6 +1,8 @@
 import { Provider } from './types';
 import { MediaResult, MediaItem, ContentType } from '@/types/media';
 import { generateAudioFormats } from '../audioOptions';
+import { getYtDlpExecutablePath } from '../ytDlpPath';
+import { AppCustomError } from '../errors';
 import { execFile } from 'child_process';
 import util from 'util';
 
@@ -53,11 +55,23 @@ export class InstagramProvider implements Provider {
     let mediaItems: MediaItem[] = [];
 
     try {
+      const ytDlpBin = await getYtDlpExecutablePath();
       const { stdout, stderr } = await execFilePromise(
-        'yt-dlp',
+        ytDlpBin,
         ['--dump-single-json', '--no-playlist', url],
         { maxBuffer: 20 * 1024 * 1024, timeout: 15000 }
-      ).catch((err) => ({ stdout: (err as { stdout?: string }).stdout || '', stderr: (err as { stderr?: string }).stderr || '' }));
+      ).catch((err) => {
+        const errStr = String(err || '').toLowerCase();
+        if (errStr.includes('enoent') || errStr.includes('spawn')) {
+          throw new AppCustomError(
+            'INTERNAL_ERROR',
+            `Komponen runtime yt-dlp tidak ditemukan atau gagal dijalankan: ${err instanceof Error ? err.message : String(err)}`,
+            true,
+            errStr
+          );
+        }
+        return { stdout: (err as { stdout?: string }).stdout || '', stderr: (err as { stderr?: string }).stderr || '' };
+      });
 
       let parsed: {
         uploader?: string;

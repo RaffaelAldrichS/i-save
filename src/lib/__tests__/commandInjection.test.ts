@@ -29,7 +29,7 @@ describe('Command injection safety (LOGIC-01 regression)', () => {
 
     expect(execFileMock).toHaveBeenCalledTimes(1);
     const [bin, args] = execFileMock.mock.calls[0];
-    expect(bin).toBe('yt-dlp');
+    expect(bin).toContain('yt-dlp');
     expect(Array.isArray(args)).toBe(true);
     expect(args[args.length - 1]).toBe(maliciousUrl);
     expect(args.filter((a: string) => a === maliciousUrl).length).toBe(1);

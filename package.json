@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "node node_modules/@choewy/yt-dlp/dist/src/install.js"
   },
   "dependencies": {
+    "@choewy/yt-dlp": "^1.2.0",
     "@upstash/qstash": "^2.11.3",
     "@upstash/redis": "^1.38.4",
     "@vercel/blob": "^2.8.0",

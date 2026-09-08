@@ -26,6 +26,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    '/api/**/*': ['./node_modules/@choewy/yt-dlp/dist/bin/**/*', './node_modules/ffmpeg-static/**/*'],
+  },
   async headers() {
     return [
       {

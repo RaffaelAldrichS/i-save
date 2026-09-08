@@ -2,6 +2,7 @@ import { Provider } from './types';
 import { MediaResult, MediaItem, ContentType } from '@/types/media';
 import { generateAudioFormats } from '../audioOptions';
 import { isSafeExternalUrl } from '../security';
+import { getYtDlpExecutablePath } from '../ytDlpPath';
 import { execFile } from 'child_process';
 import util from 'util';
 
@@ -53,8 +54,9 @@ export class FacebookProvider implements Provider {
     let discoveredHeights: number[] = [];
 
     try {
+      const ytDlpBin = await getYtDlpExecutablePath();
       const { stdout } = await execFilePromise(
-        'yt-dlp',
+        ytDlpBin,
         ['--dump-single-json', '--no-playlist', url],
         { maxBuffer: 20 * 1024 * 1024, timeout: 3500 }
       );
